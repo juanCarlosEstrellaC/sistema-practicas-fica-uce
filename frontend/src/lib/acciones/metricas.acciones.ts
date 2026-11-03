@@ -1,0 +1,345 @@
+'use server';
+
+import { URL_BACKEND, obtenerCabecerasAutenticacion } from './cliente-servidor';
+import { obtenerAsignacionesProyectosComunitariosAccion, obtenerEstudiantesDisponiblesAccion } from './vcs/asignacion-proyecto.acciones';
+import { obtenerProyectosComunitariosAccion } from './vcs/proyecto-comunitario.acciones';
+import { obtenerAsignacionesPracticasAccion } from './pp/asignacion-practica.acciones';
+import { obtenerCarrerasAccion } from './carrera.acciones';
+import { obtenerPeriodosAcademicosAccion } from './periodo-academico.acciones';
+import { CarreraDto } from '@/lib/tipos/pp/general-pp';
+
+export interface MetricasPpDto {
+  totalEstudiantes: number;
+  estudiantesAsignados: number;
+  estudiantesEnCurso: number;
+  estudiantesCompletados: number;
+  totalConvenios: number;
+  conveniosPorExpirar: number;
+  conveniosExpirados: number;
+  totalTutores: number;
+  reportesPendientes: number;
+}
+
+export interface MetricasVcsDto {
+  totalAsignaciones: number;
+  asignacionesEnCurso: number;
+  asignacionesCompletadas: number;
+  totalProyectos: number;
+  proyectosEnDesarrollo: number;
+  proyectosFinalizados: number;
+  proyectosActivos: number;
+  estudiantesPendientesAsignacion: number;
+}
+
+export interface MetricasDesgloseCarreraDto {
+  carreraId: number;
+  carreraNombre: string;
+  // Practicas
+  ppTotalEstudiantes: number;
+  ppSinAsignacion: number;
+  ppEnDesarrollo: number;
+  ppFinalizados: number;
+  ppConveniosActivos: number;
+  // Vinculacion
+  vcsProyectosActuales: number;
+  vcsProyectosEnDesarrollo: number;
+  vcsProyectosFinalizados: number;
+  vcsEstudiantesParticipando: number;
+  vcsProyectosActivos: number;
+}
+
+export interface MetricasGlobalesFacultadDto {
+  totalCarreras: number;
+  totalPeriodos: number;
+  desgloseCarreras: MetricasDesgloseCarreraDto[];
+}
+
+export interface ResumenEstudianteDashboardDto {
+  tienePractica: boolean;
+  horasPracticaCompletadas: number;
+  horasPracticaAsignadas: number;
+  estadoPractica?: string;
+  fasePractica?: string;
+  institucionPractica?: string;
+  tieneVinculacion: boolean;
+  horasVinculacionCompletadas: number;
+  horasVinculacionAsignadas: number;
+  estadoVinculacion?: string;
+  faseVinculacion?: string;
+  proyectoVinculacion?: string;
+}
+
+export interface MetricasDashboardGeneralDto {
+  pp: MetricasPpDto;
+  vcs: MetricasVcsDto;
+  estudiante?: ResumenEstudianteDashboardDto;
+  subdecano?: MetricasGlobalesFacultadDto;
+}
+
+export interface FiltrosDashboardGeneral {
+  periodoId?: number;
+  carreraId?: number;
+  tutorId?: number;
+  rol?: string;
+  estudianteId?: number;
+  identificacionEstudiante?: string;
+}
+
+/**
+ * Obtiene métricas reales de Prácticas Preprofesionales desde el backend.
+ */
+export async function obtenerMetricasPpAccion(filtros: FiltrosDashboardGeneral = {}): Promise<MetricasPpDto> {
+  try {
+    const cabeceras = await obtenerCabecerasAutenticacion();
+    let url: string;
+
+    const params = new URLSearchParams();
+    if (filtros.periodoId) params.set('periodoId', filtros.periodoId.toString());
+
+    if (filtros.rol === 'SUBDECANO' || !filtros.carreraId) {
+      url = `${URL_BACKEND}/metricas/globales?${params.toString()}`;
+    } else {
+      if (filtros.tutorId) params.set('tutorId', filtros.tutorId.toString());
+      url = `${URL_BACKEND}/metricas/carrera/${filtros.carreraId}?${params.toString()}`;
+    }
+
+    const respuesta = await fetch(url, {
+      method: 'GET',
+      headers: cabeceras,
+      cache: 'no-store',
+    });
+
+    if (!respuesta.ok) {
+      throw new Error(`Error ${respuesta.status}: al consultar métricas de PP`);
+    }
+
+    const json = await respuesta.json();
+    return json.data as MetricasPpDto;
+  } catch (error) {
+    console.error('Error al obtener métricas de PP:', error);
+    return {
+      totalEstudiantes: 0,
+      estudiantesAsignados: 0,
+      estudiantesEnCurso: 0,
+      estudiantesCompletados: 0,
+      totalConvenios: 0,
+      conveniosPorExpirar: 0,
+      conveniosExpirados: 0,
+      totalTutores: 0,
+      reportesPendientes: 0,
+    };
+  }
+}
+
+/**
+ * Obtiene métricas reales de Vinculación con la Sociedad en paralelo.
+ */
+export async function obtenerMetricasVcsAccion(filtros: FiltrosDashboardGeneral = {}): Promise<MetricasVcsDto> {
+  try {
+    const [asigTotal, asigEnCurso, asigCompletadas, proyectosTotal, proyectosActivos, proyectosFinalizados, pendientes] = await Promise.all([
+      obtenerAsignacionesProyectosComunitariosAccion({
+        periodoAcademicoId: filtros.periodoId,
+        carreraId: filtros.carreraId,
+        tutorId: filtros.tutorId,
+        size: 1,
+      }),
+      obtenerAsignacionesProyectosComunitariosAccion({
+        periodoAcademicoId: filtros.periodoId,
+        carreraId: filtros.carreraId,
+        tutorId: filtros.tutorId,
+        estado: 'EN_CURSO',
+        size: 1,
+      }),
+      obtenerAsignacionesProyectosComunitariosAccion({
+        periodoAcademicoId: filtros.periodoId,
+        carreraId: filtros.carreraId,
+        tutorId: filtros.tutorId,
+        estado: 'APROBADO',
+        size: 1,
+      }),
+      obtenerProyectosComunitariosAccion({
+        carreraId: filtros.carreraId,
+        tutorId: filtros.tutorId,
+        size: 1,
+      }),
+      obtenerProyectosComunitariosAccion({
+        carreraId: filtros.carreraId,
+        tutorId: filtros.tutorId,
+        estado: 'ACTIVO',
+        size: 1,
+      }),
+      obtenerProyectosComunitariosAccion({
+        carreraId: filtros.carreraId,
+        tutorId: filtros.tutorId,
+        estado: 'FINALIZADO',
+        size: 1,
+      }),
+      filtros.rol === 'DIRECTOR_CARRERA' && filtros.carreraId && filtros.periodoId
+        ? obtenerEstudiantesDisponiblesAccion(filtros.carreraId, filtros.periodoId)
+        : Promise.resolve([]),
+    ]);
+
+    const numActivos = proyectosActivos.totalElements || 0;
+    const numFinalizados = proyectosFinalizados.totalElements || 0;
+    const numTotales = proyectosTotal.totalElements || (numActivos + numFinalizados);
+
+    return {
+      totalAsignaciones: asigTotal.totalElements || 0,
+      asignacionesEnCurso: asigEnCurso.totalElements || 0,
+      asignacionesCompletadas: asigCompletadas.totalElements || 0,
+      totalProyectos: numTotales,
+      proyectosEnDesarrollo: numActivos,
+      proyectosFinalizados: numFinalizados,
+      proyectosActivos: numActivos,
+      estudiantesPendientesAsignacion: pendientes.length || 0,
+    };
+  } catch (error) {
+    console.error('Error al obtener métricas de VCS:', error);
+    return {
+      totalAsignaciones: 0,
+      asignacionesEnCurso: 0,
+      asignacionesCompletadas: 0,
+      totalProyectos: 0,
+      proyectosEnDesarrollo: 0,
+      proyectosFinalizados: 0,
+      proyectosActivos: 0,
+      estudiantesPendientesAsignacion: 0,
+    };
+  }
+}
+
+/**
+ * Orquestador principal de métricas para el Dashboard General de PP y VCS.
+ */
+export async function obtenerMetricasDashboardGeneralAccion(
+  filtros: FiltrosDashboardGeneral = {}
+): Promise<MetricasDashboardGeneralDto> {
+  if (filtros.rol === 'ESTUDIANTE') {
+    const [resPp, resVcs] = await Promise.all([
+      obtenerAsignacionesPracticasAccion({
+        estudianteId: filtros.estudianteId,
+        periodoId: filtros.periodoId,
+        size: 1,
+      }),
+      obtenerAsignacionesProyectosComunitariosAccion({
+        estudianteId: filtros.estudianteId,
+        periodoAcademicoId: filtros.periodoId,
+        size: 1,
+      }),
+    ]);
+
+    const asigPp = resPp?.content?.[0] as any;
+    const asigVcs = resVcs?.content?.[0] as any;
+
+    return {
+      pp: {
+        totalEstudiantes: 1,
+        estudiantesAsignados: asigPp ? 1 : 0,
+        estudiantesEnCurso: asigPp?.estado === 'EN_CURSO' ? 1 : 0,
+        estudiantesCompletados: asigPp?.estado === 'COMPLETADO' ? 1 : 0,
+        totalConvenios: asigPp?.convenioId ? 1 : 0,
+        conveniosPorExpirar: 0,
+        conveniosExpirados: 0,
+        totalTutores: asigPp?.tutorAcademico ? 1 : 0,
+        reportesPendientes: 0,
+      },
+      vcs: {
+        totalAsignaciones: asigVcs ? 1 : 0,
+        asignacionesEnCurso: asigVcs?.estado === 'EN_CURSO' ? 1 : 0,
+        asignacionesCompletadas: asigVcs?.estado === 'APROBADO' ? 1 : 0,
+        totalProyectos: (asigVcs?.proyectoId || asigVcs?.proyectoComunitario) ? 1 : 0,
+        proyectosEnDesarrollo: asigVcs?.estado === 'EN_CURSO' ? 1 : 0,
+        proyectosFinalizados: asigVcs?.estado === 'APROBADO' ? 1 : 0,
+        proyectosActivos: asigVcs?.estado === 'EN_CURSO' ? 1 : 0,
+        estudiantesPendientesAsignacion: 0,
+      },
+      estudiante: {
+        tienePractica: Boolean(asigPp),
+        horasPracticaCompletadas: asigPp?.horasCompletadas || 0,
+        horasPracticaAsignadas: asigPp?.horasAsignadas || 240,
+        estadoPractica: asigPp?.estado,
+        fasePractica: asigPp?.fase,
+        institucionPractica: asigPp?.institucion || asigPp?.convenioInstitucion,
+        tieneVinculacion: Boolean(asigVcs),
+        horasVinculacionCompletadas: asigVcs?.horasCompletadas || 0,
+        horasVinculacionAsignadas: asigVcs?.horasAsignadas || 80,
+        estadoVinculacion: asigVcs?.estado,
+        faseVinculacion: asigVcs?.faseActual,
+        proyectoVinculacion: asigVcs?.nombreProyecto,
+      },
+    };
+  }
+
+  if (filtros.rol === 'SUBDECANO') {
+    const [metricasPp, metricasVcs, carrerasRes, periodosRes] = await Promise.all([
+      obtenerMetricasPpAccion(filtros),
+      obtenerMetricasVcsAccion(filtros),
+      obtenerCarrerasAccion(0, 100),
+      obtenerPeriodosAcademicosAccion(),
+    ]);
+
+    let desgloseCarreras: MetricasDesgloseCarreraDto[] = [];
+    if (carrerasRes?.content && carrerasRes.content.length > 0) {
+      desgloseCarreras = await Promise.all(
+        carrerasRes.content.map(async (carr: CarreraDto) => {
+          const cId = Number(carr.id);
+          try {
+            const [ppCar, vcsCar] = await Promise.all([
+              obtenerMetricasPpAccion({ carreraId: cId, periodoId: filtros.periodoId }),
+              obtenerMetricasVcsAccion({ carreraId: cId, periodoId: filtros.periodoId }),
+            ]);
+            return {
+              carreraId: cId,
+              carreraNombre: carr.nombre,
+              ppTotalEstudiantes: ppCar.totalEstudiantes,
+              ppSinAsignacion: Math.max(0, ppCar.totalEstudiantes - ppCar.estudiantesAsignados),
+              ppEnDesarrollo: ppCar.estudiantesEnCurso,
+              ppFinalizados: ppCar.estudiantesCompletados,
+              ppConveniosActivos: ppCar.totalConvenios,
+              vcsProyectosActuales: vcsCar.totalProyectos,
+              vcsProyectosEnDesarrollo: vcsCar.proyectosEnDesarrollo,
+              vcsProyectosFinalizados: vcsCar.proyectosFinalizados,
+              vcsEstudiantesParticipando: vcsCar.totalAsignaciones,
+              vcsProyectosActivos: vcsCar.proyectosActivos,
+            };
+          } catch {
+            return {
+              carreraId: cId,
+              carreraNombre: carr.nombre,
+              ppTotalEstudiantes: 0,
+              ppSinAsignacion: 0,
+              ppEnDesarrollo: 0,
+              ppFinalizados: 0,
+              ppConveniosActivos: 0,
+              vcsProyectosActuales: 0,
+              vcsProyectosEnDesarrollo: 0,
+              vcsProyectosFinalizados: 0,
+              vcsEstudiantesParticipando: 0,
+              vcsProyectosActivos: 0,
+            };
+          }
+        })
+      );
+    }
+
+    return {
+      pp: metricasPp,
+      vcs: metricasVcs,
+      subdecano: {
+        totalCarreras: carrerasRes.totalElements || (carrerasRes.content?.length ?? 0),
+        totalPeriodos: periodosRes.totalElements || (periodosRes.content?.length ?? 0),
+        desgloseCarreras,
+      },
+    };
+  }
+
+  const [metricasPp, metricasVcs] = await Promise.all([
+    obtenerMetricasPpAccion(filtros),
+    obtenerMetricasVcsAccion(filtros),
+  ]);
+
+  return {
+    pp: metricasPp,
+    vcs: metricasVcs,
+  };
+}

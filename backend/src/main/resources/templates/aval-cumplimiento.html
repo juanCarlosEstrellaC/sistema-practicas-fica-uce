@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Aval Cumplimiento de Prácticas Preprofesionales</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 5cm 3cm 2.5cm 3cm;
+            @top-center {
+                content: element(header);
+            }
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #000;
+        }
+
+        #header {
+            position: running(header);
+            text-align: center;
+            width: 100%;
+            margin-top: 1.5cm;
+            margin-bottom: 20px;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+        }
+
+        .logo {
+            max-height: 60px;
+            vertical-align: middle;
+        }
+
+        .header-title {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+
+        .cuerpo {
+            text-align: justify;
+            margin-bottom: 20px;
+        }
+
+        .firma-box {
+            margin-top: 100px;
+            text-align: left;
+        }
+        
+        .firma-box p {
+            margin: 2px 0;
+        }
+        
+        .firma-line {
+            width: 250px;
+            border-top: 1px solid #000;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div class="header-content">
+            <img class="logo" th:if="${logoBase64 != null}" th:src="${logoBase64}" alt="Logo UCE" style="float: left;" />
+            <img class="logo" th:unless="${logoBase64 != null}" src="logoUCE.png" alt="Logo UCE" style="float: left;" />
+            <div class="header-title" style="display: inline-block; margin-top: 10px;">
+                UNIVERSIDAD CENTRAL DEL ECUADOR<br/>
+                DIRECCIÓN DE VINCULACIÓN CON LA SOCIEDAD<br/>
+                CERTIFICADO PPP
+            </div>
+            <img class="logo" th:if="${vcsBase64 != null}" th:src="${vcsBase64}" alt="Logo Vinculacion" style="float: right;" />
+            <img class="logo" th:unless="${vcsBase64 != null}" src="vcs_recorte.png" alt="Logo Vinculacion" style="float: right;" />
+            <div style="clear: both;"></div>
+        </div>
+    </div>
+
+    <h2 style="text-align: center; text-transform: uppercase; font-size: 10pt; margin-top: 40px; margin-bottom: 40px; white-space: nowrap;">
+        CERTIFICADO DE HABER CONCLUIDO LA PRÁCTICA PREPROFESIONAL
+    </h2>
+
+    <div style="margin-bottom: 20px;">
+        <p>Quito, <span th:text="${fechaEmision}">[Fecha de emisión]</span>.</p>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <p>
+            Universidad Central del Ecuador<br/>
+            Facultad de Ingeniería y Ciencias Aplicadas<br/>
+            Carrera de <span th:text="${carrera}">[Carrera]</span>
+        </p>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <p>Presente. -</p>
+    </div>
+
+    <div class="cuerpo">
+        <p>
+            Informo que el Sr(a): <strong><span th:text="${estudianteNombre}">[Estudiante]</span></strong>, 
+            con cédula de identidad N° <strong><span th:text="${estudianteCedula}">[Cedula]</span></strong>, 
+            estudiante de la Facultad de Ingeniería y Ciencias Aplicadas, Carrera de <span th:text="${carrera}">[Carrera]</span>, 
+            ha concluido la Práctica Preprofesional, en la Institución <strong><span th:text="${institucionReceptora}">[Institución]</span></strong>, bajo la tutoría institucional de 
+            <span th:text="${tutorInstitucional}">[Tutor Inst.]</span>, durante el período académico <span th:text="${periodo}">[Periodo]</span>. 
+            desde el <strong th:text="${fechaInicio}">[Inicio]</strong> hasta el <strong th:text="${fechaFin}">[Fin]</strong>, 
+            convalidando un total de <strong><span th:text="${horas}">[Horas]</span></strong> horas académicas de Prácticas Preprofesionales, 
+            demostrando responsabilidad, honestidad y capacidad en las actividades encomendadas para el desarrollo del proceso enseñanza-aprendizaje en la institución.
+        </p>
+    </div>
+
+    <div class="cuerpo">
+        <p>Particular que informo para los fines pertinentes,</p>
+    </div>
+
+    <div class="cuerpo">
+        <p>Atentamente,</p>
+    </div>
+
+    <div class="firma-box">
+        <br/><br/>
+        <div class="firma-line"></div>
+        <p><strong th:text="${subdecanoNombre}">[Nombres y Apellidos de la autoridad competente]</strong></p>
+        <p>C.C. <span th:text="${subdecanoCedula}">[Cedula]</span></p>
+        <p>Cargo: SUBDECANO(A) FICA</p>
+        <p>Número telefónico: <span th:text="${subdecanoTelefono}">[Telefono]</span></p>
+        <p>Correo electrónico: <span th:text="${subdecanoCorreo}">[Correo]</span></p>
+    </div>
+
+</body>
+</html>

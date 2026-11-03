@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbWFydGluZXpAdWNlLmVkdS5lYyIsInZlcnNpb25Ub2tlbiI6MCwiaWF0IjoxNzkzNzM4MzgxLCJleHAiOjE3OTM3NjcxODF9.B9G4lLyk8eSBTCn8PO5c_UaAiRIWHHtd65uGekRh2y4",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767181.839102,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A19%2C%22correo%22%3A%22amartinez%40uce.edu.ec%22%2C%22nombres%22%3A%22Ana%20Maria%22%2C%22apellidos%22%3A%22Martinez%20Vega%22%2C%22identificacion%22%3A%221700000004%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22ESTUDIANTE%22%2C%22carreraId%22%3A4%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767181.839264,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"19\",\"correo\":\"amartinez@uce.edu.ec\",\"nombre\":\"Ana Maria Martinez Vega\",\"nombres\":\"Ana Maria\",\"apellidos\":\"Martinez Vega\",\"rol\":\"ESTUDIANTE\",\"carreraId\":\"4\",\"identificacion\":\"1700000004\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

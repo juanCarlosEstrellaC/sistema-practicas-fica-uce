@@ -1,0 +1,66 @@
+services:
+  # ==========================================
+  # 1. Base de Datos (PostgreSQL 16)
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: sistema-practicas-bd
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-db_practicas_fica_uce}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-db_practicas_fica_uce}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 2. Backend (Spring Boot 4 / Java 25)
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sistema-practicas-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-db_practicas_fica_uce}?stringtype=unspecified&prepareThreshold=0
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres123}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_ALMACENAMIENTO_RUTA_BASE: /app/archivos_subidos
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/archivos_subidos:/app/archivos_subidos
+
+  # ==========================================
+  # 3. Frontend (Next.js 16 / React 19)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sistema-practicas-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://backend:8080/api/v1
+      NEXT_PUBLIC_API_URL: /api/proxy
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_datos:
+    driver: local

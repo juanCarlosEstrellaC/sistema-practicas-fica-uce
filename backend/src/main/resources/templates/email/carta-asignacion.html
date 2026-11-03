@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carta de Asignación - FICA UCE</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 40px 0;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); overflow: hidden;" cellspacing="0" cellpadding="0">
+                    <!-- Cabecera -->
+                    <tr>
+                        <td style="background-color: #1e3a8a; padding: 28px 24px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">Universidad Central del Ecuador</h1>
+                            <p style="color: #93c5fd; margin: 6px 0 0 0; font-size: 14px; font-weight: 500;">Facultad de Ingeniería y Ciencias Aplicadas</p>
+                        </td>
+                    </tr>
+                    <!-- Contenido -->
+                    <tr>
+                        <td style="padding: 32px 28px;">
+                            <p style="font-size: 16px; margin: 0 0 16px 0; color: #334155;">
+                                Estimado/a <strong th:text="${tutorInstitucional}">Tutor/a Institucional</strong>,
+                            </p>
+                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0; color: #475569;">
+                                Adjunto a este correo encontrará la <strong>Carta de Asignación </strong> para el estudiante <strong th:text="${nombreEstudiante}">Estudiante</strong>, quien realizará sus Prácticas Preprofesionales en su distinguida institución.
+                            </p>
+                            <div style="background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 14px 18px; border-radius: 4px; margin-bottom: 24px;">
+                                <p style="font-size: 14px; color: #15803d; margin: 0;">
+                                    El documento oficial en formato PDF ha sido adjuntado con la firma de la Dirección de Carrera.
+                                </p>
+                            </div>
+                            <p style="font-size: 14px; line-height: 1.5; color: #64748b; margin: 0 0 8px 0;">
+                                Atentamente,
+                            </p>
+                            <p style="font-size: 14px; font-weight: 600; color: #1e3a8a; margin: 0;">
+                                Dirección de Carrera - FICA
+                            </p>
+                            <p style="font-size: 13px; color: #64748b; margin: 2px 0 0 0;">
+                                Universidad Central del Ecuador
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Pie de página -->
+                    <tr>
+                        <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+                                Este es un mensaje institucional automático del Sistema de Gestión de Prácticas Preprofesionales UCE.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

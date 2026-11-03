@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhcGVyZXpAdWNlLmVkdS5lYyIsInZlcnNpb25Ub2tlbiI6MCwiaWF0IjoxNzkzNzM4MzYyLCJleHAiOjE3OTM3NjcxNjJ9.gKAldPA1PalNOEBkUlkQlrNzIEpkMZi8q5ySFgMnaUI",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767162.591168,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A1%2C%22correo%22%3A%22aperez%40uce.edu.ec%22%2C%22nombres%22%3A%22Ana%20Lucia%22%2C%22apellidos%22%3A%22Perez%20Perez%22%2C%22identificacion%22%3A%221711111119%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22SUBDECANO%22%2C%22carreraId%22%3Anull%2C%22telefono%22%3A%220987654321%22%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767162.591341,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"1\",\"correo\":\"aperez@uce.edu.ec\",\"nombre\":\"Ana Lucia Perez Perez\",\"nombres\":\"Ana Lucia\",\"apellidos\":\"Perez Perez\",\"rol\":\"SUBDECANO\",\"identificacion\":\"1711111119\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":\"0987654321\",\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

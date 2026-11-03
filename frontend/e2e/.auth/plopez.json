@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwbG9wZXpAdWNlLmVkdS5lYyIsInZlcnNpb25Ub2tlbiI6MCwiaWF0IjoxNzkzNzM4Mzc3LCJleHAiOjE3OTM3NjcxNzd9.HCnhHGgwVduby_FgnArY_u9Rcpk1F6oqrNvEayBEZDY",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767177.147976,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A15%2C%22correo%22%3A%22plopez%40uce.edu.ec%22%2C%22nombres%22%3A%22Pedro%20Luis%22%2C%22apellidos%22%3A%22Lopez%20Castro%22%2C%22identificacion%22%3A%221700000003%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22ESTUDIANTE%22%2C%22carreraId%22%3A3%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767177.148117,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"15\",\"correo\":\"plopez@uce.edu.ec\",\"nombre\":\"Pedro Luis Lopez Castro\",\"nombres\":\"Pedro Luis\",\"apellidos\":\"Lopez Castro\",\"rol\":\"ESTUDIANTE\",\"carreraId\":\"3\",\"identificacion\":\"1700000003\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

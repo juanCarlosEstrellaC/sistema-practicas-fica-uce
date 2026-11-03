@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtcml2ZXJhQHVjZS5lZHUuZWMiLCJ2ZXJzaW9uVG9rZW4iOjAsImlhdCI6MTc5MzczODM1NiwiZXhwIjoxNzkzNzY3MTU2fQ.jDfQ4uYJVN7Bp__1-WGbJVa80-6MTbex-OHAqCUr-b8",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767156.970798,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A8%2C%22correo%22%3A%22mrivera%40uce.edu.ec%22%2C%22nombres%22%3A%22Mario%20Roberto%22%2C%22apellidos%22%3A%22Rivera%20Diaz%22%2C%22identificacion%22%3A%221711111116%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22DIRECTOR_CARRERA%22%2C%22carreraId%22%3A2%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767156.971,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"8\",\"correo\":\"mrivera@uce.edu.ec\",\"nombre\":\"Mario Roberto Rivera Diaz\",\"nombres\":\"Mario Roberto\",\"apellidos\":\"Rivera Diaz\",\"rol\":\"DIRECTOR_CARRERA\",\"carreraId\":\"2\",\"identificacion\":\"1711111116\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

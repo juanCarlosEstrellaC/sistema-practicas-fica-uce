@@ -1,0 +1,121 @@
+package com.uce.api_pp_uce.controllers.pp;
+
+import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.dtos.pp.MatrizCacesDto;
+import com.uce.api_pp_uce.enums.pp.EstadoMatrizCaces;
+import com.uce.api_pp_uce.services.pp.MatrizCacesService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+
+@RestController
+@RequestMapping("/matrices-caces")
+@RequiredArgsConstructor
+public class MatrizCacesController {
+
+    private final MatrizCacesService matrizCacesService;
+
+    @GetMapping("/carrera/{carreraId}")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<RespuestaApi<Page<MatrizCacesDto>>> listarPorCarrera(@PathVariable Integer carreraId, Pageable pageable) {
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Listado por carrera", matrizCacesService.listarPorCarrera(carreraId, pageable)));
+    }
+
+    @GetMapping("/periodo/{periodoId}")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<RespuestaApi<Page<MatrizCacesDto>>> listarPorPeriodo(
+            @PathVariable Long periodoId,
+            @RequestParam(required = false) EstadoMatrizCaces estado,
+            @RequestParam(required = false) String search,
+            Pageable pageable) {
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Listado por periodo", matrizCacesService.listarPorPeriodo(periodoId, estado, search, pageable)));
+    }
+
+    @GetMapping("/periodo/{periodoId}/carrera/{carreraId}")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<RespuestaApi<MatrizCacesDto>> obtenerPorPeriodoYCarrera(@PathVariable Long periodoId, @PathVariable Integer carreraId) {
+        MatrizCacesDto dto = matrizCacesService.obtenerPorPeriodoYCarrera(periodoId, carreraId);
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Matriz obtenida", dto));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<RespuestaApi<MatrizCacesDto>> crearOActualizar(@RequestParam Long periodoAcademicoId, @RequestParam Integer carreraId) {
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Matriz registrada", matrizCacesService.crearOActualizar(periodoAcademicoId, carreraId)));
+    }
+
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<RespuestaApi<MatrizCacesDto>> cambiarEstado(@PathVariable Long id, @RequestParam EstadoMatrizCaces estado, @RequestParam(required = false) String observacion) {
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Estado actualizado", matrizCacesService.cambiarEstado(id, estado, observacion)));
+    }
+
+    @GetMapping("/{id}/excel")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<byte[]> descargarExcel(@PathVariable Long id) {
+        byte[] excelBytes = matrizCacesService.generarExcelMatrizCaces(id);
+        MatrizCacesDto matriz = matrizCacesService.obtenerPorId(id);
+
+        String nombreCarrera = (matriz != null && matriz.carreraNombre() != null && !matriz.carreraNombre().trim().isEmpty())
+                ? matriz.carreraNombre().trim()
+                : "Carrera";
+        String periodo = (matriz != null && matriz.periodoNombre() != null && !matriz.periodoNombre().trim().isEmpty())
+                ? matriz.periodoNombre().trim()
+                : "Periodo";
+
+        String ext = ".xlsx";
+        String contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        if (matriz != null && matriz.archivoFirmadoUrl() != null && !matriz.archivoFirmadoUrl().trim().isEmpty()) {
+            String url = matriz.archivoFirmadoUrl().toLowerCase();
+            if (url.endsWith(".pdf")) {
+                ext = ".pdf";
+                contentType = "application/pdf";
+            } else if (url.endsWith(".ods")) {
+                ext = ".ods";
+                contentType = "application/vnd.oasis.opendocument.spreadsheet";
+            }
+        }
+
+        String sufijoFirma = "";
+        if (matriz != null && matriz.estado() != null) {
+            if (matriz.estado() == EstadoMatrizCaces.FIRMADA_POR_DC) {
+                sufijoFirma = " - Firmada por DC";
+            } else if (matriz.estado() == EstadoMatrizCaces.ENVIADA_A_SUBDECANO) {
+                sufijoFirma = " - Firmada por CPP";
+            } else if (matriz.estado() == EstadoMatrizCaces.FIRMADA_POR_SUBDECANO) {
+                sufijoFirma = " - Oficializada";
+            }
+        }
+
+        String nombreDescarga = String.format("Matriz CACES - %s - %s%s%s", nombreCarrera, periodo, sufijoFirma, ext);
+
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(nombreDescarga)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(excelBytes);
+    }
+
+    @PatchMapping("/{id}/archivo-firmado")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
+    public ResponseEntity<RespuestaApi<MatrizCacesDto>> subirArchivoFirmado(@PathVariable Long id, @RequestParam String urlArchivo) {
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Archivo firmado actualizado", matrizCacesService.subirArchivoFirmado(id, urlArchivo)));
+    }
+}

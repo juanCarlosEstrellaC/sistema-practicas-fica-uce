@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJrdmVnYUB1Y2UuZWR1LmVjIiwidmVyc2lvblRva2VuIjowLCJpYXQiOjE3OTM3MzgwNDMsImV4cCI6MTc5Mzc2Njg0M30.rKh4-ayrg5UBHlE6jOBK40b1mMoSATdFT5-1talhFdk",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793766843.473873,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A9%2C%22correo%22%3A%22kvega%40uce.edu.ec%22%2C%22nombres%22%3A%22Karina%20Paola%22%2C%22apellidos%22%3A%22Vega%20Rios%22%2C%22identificacion%22%3A%221711111121%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22COORDINADOR_PRACTICAS%22%2C%22carreraId%22%3A2%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793766843.473994,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"9\",\"correo\":\"kvega@uce.edu.ec\",\"nombre\":\"Karina Paola Vega Rios\",\"nombres\":\"Karina Paola\",\"apellidos\":\"Vega Rios\",\"rol\":\"COORDINADOR_PRACTICAS\",\"carreraId\":\"2\",\"identificacion\":\"1711111121\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

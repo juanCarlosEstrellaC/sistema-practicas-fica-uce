@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ6cnVpekB1Y2UuZWR1LmVjIiwidmVyc2lvblRva2VuIjowLCJpYXQiOjE3OTM3MzgzNTEsImV4cCI6MTc5Mzc2NzE1MX0.LF3om4rXYqQY-3fEqMGF8zWAekNslwAOEsIXS-3vAQE",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767151.275402,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A2%2C%22correo%22%3A%22zruiz%40uce.edu.ec%22%2C%22nombres%22%3A%22Zoila%20de%20Lourdes%22%2C%22apellidos%22%3A%22Ruiz%20Chavez%22%2C%22identificacion%22%3A%221711111115%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22DIRECTOR_CARRERA%22%2C%22carreraId%22%3A1%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767151.275608,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"2\",\"correo\":\"zruiz@uce.edu.ec\",\"nombre\":\"Zoila de Lourdes Ruiz Chavez\",\"nombres\":\"Zoila de Lourdes\",\"apellidos\":\"Ruiz Chavez\",\"rol\":\"DIRECTOR_CARRERA\",\"carreraId\":\"1\",\"identificacion\":\"1711111115\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

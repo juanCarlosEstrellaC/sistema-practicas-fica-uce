@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqY2VzdHJlbGxhQHVjZS5lZHUuZWMiLCJ2ZXJzaW9uVG9rZW4iOjAsImlhdCI6MTc5MzczODM2OSwiZXhwIjoxNzkzNzY3MTY5fQ.ISpV3vrI8qS6FpR2ccGM6A9UuxNIs-umrMyrngoXYVU",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767169.835413,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A5%2C%22correo%22%3A%22jcestrella%40uce.edu.ec%22%2C%22nombres%22%3A%22Juan%20Carlos%22%2C%22apellidos%22%3A%22Estrella%20Caicedo%22%2C%22identificacion%22%3A%221723522403%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22ESTUDIANTE%22%2C%22carreraId%22%3A1%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767169.835572,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"5\",\"correo\":\"jcestrella@uce.edu.ec\",\"nombre\":\"Juan Carlos Estrella Caicedo\",\"nombres\":\"Juan Carlos\",\"apellidos\":\"Estrella Caicedo\",\"rol\":\"ESTUDIANTE\",\"carreraId\":\"1\",\"identificacion\":\"1723522403\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

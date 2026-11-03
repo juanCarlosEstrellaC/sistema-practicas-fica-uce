@@ -1,0 +1,10 @@
+nombres,apellidos,correo,identificacion,tipo_identificacion,rol,carrera_id
+Jaime Oswaldo,Salvador Meneses,jsalvador@uce.edu.ec,1711111111,CEDULA,TUTOR_ACADEMICO,1
+Zoila de Lourdes,Ruiz Chavez,zruiz@uce.edu.ec,1711111115,CEDULA,DIRECTOR_CARRERA,1
+Milton Giovanny,Moncayo Unda,gmoncayo@uce.edu.ec,1711111118,CEDULA,COORDINADOR_PRACTICAS,1
+Juan Carlos,Estrella Caicedo,jcestrella@uce.edu.ec,1723522403,CEDULA,ESTUDIANTE,1
+Ana Maria,Gomez Perez,agomez@uce.edu.ec,P00987654,PASAPORTE,ESTUDIANTE,1
+Luis Alberto,Sanchez Ruiz,lsanchez@uce.edu.ec,1723456789,CEDULA,ESTUDIANTE,1
+Maria Fernanda,Lopez Diaz,mlopez@uce.edu.ec,1734567890,CEDULA,ESTUDIANTE,1
+Carlos Andres,Torres Silva,ctorres@uce.edu.ec,1745678901,CEDULA,ESTUDIANTE,1
+Sofia Isabel,Ramirez Castro,sramirez@uce.edu.ec,1756789012,CEDULA,ESTUDIANTE,1

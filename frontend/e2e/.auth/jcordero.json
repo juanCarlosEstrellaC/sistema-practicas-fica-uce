@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqY29yZGVyb0B1Y2UuZWR1LmVjIiwidmVyc2lvblRva2VuIjowLCJpYXQiOjE3OTM3MzgzODUsImV4cCI6MTc5Mzc2NzE4NX0.kj5ErHCjhfzw824CM66GtFFhdDzmZc5tSYdQ91wDQQQ",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767185.940686,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "usuario",
+      "value": "%7B%22id%22%3A23%2C%22correo%22%3A%22jcordero%40uce.edu.ec%22%2C%22nombres%22%3A%22Juan%20Miguel%22%2C%22apellidos%22%3A%22Cordero%20Paz%22%2C%22identificacion%22%3A%221710000006%22%2C%22tipoIdentificacion%22%3A%22CEDULA%22%2C%22rol%22%3A%22ESTUDIANTE%22%2C%22carreraId%22%3A5%2C%22telefono%22%3Anull%2C%22urlAvatar%22%3Anull%2C%22estado%22%3A%22ACTIVO%22%2C%22horasRequeridas%22%3A0%2C%22horasAcumuladas%22%3A0%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1793767185.940961,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "usuario",
+          "value": "{\"id\":\"23\",\"correo\":\"jcordero@uce.edu.ec\",\"nombre\":\"Juan Miguel Cordero Paz\",\"nombres\":\"Juan Miguel\",\"apellidos\":\"Cordero Paz\",\"rol\":\"ESTUDIANTE\",\"carreraId\":\"5\",\"identificacion\":\"1710000006\",\"tipoIdentificacion\":\"CEDULA\",\"telefono\":null,\"estado\":\"ACTIVO\",\"horasRequeridas\":0,\"horasAcumuladas\":0}"
+        },
+        {
+          "name": "tema",
+          "value": "sistema"
+        }
+      ]
+    }
+  ]
+}

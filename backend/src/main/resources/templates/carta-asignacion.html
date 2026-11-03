@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Carta de Asignación</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 1.5cm 2.5cm 1.5cm;
+            @top-center {
+                content: element(header);
+            }
+            @bottom-center {
+                content: element(footer);
+            }
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 9pt;
+            line-height: 1.5;
+            color: #000;
+        }
+
+        #header {
+            position: running(header);
+            text-align: center;
+            width: 100%;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            margin-top: 0.5cm;
+        }
+
+        .logo {
+            max-height: 60px;
+            vertical-align: middle;
+        }
+
+        .header-title {
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 20px;
+            color: #555;
+            font-size: 14pt;
+        }
+
+        .facultad-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 12pt;
+            margin-top: 20px;
+            margin-bottom: 5px;
+        }
+
+        .carrera-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 30px;
+        }
+
+        .oficio-info {
+            text-align: right;
+            margin-bottom: 30px;
+        }
+
+        .destinatario {
+            margin-bottom: 20px;
+        }
+
+        .cuerpo {
+            text-align: justify;
+            margin-bottom: 20px;
+        }
+
+        .detalle {
+            margin-left: 40px;
+            margin-bottom: 20px;
+        }
+
+        .detalle p {
+            margin: 5px 0;
+        }
+
+        .firma-box {
+            margin-top: 60px;
+            text-align: left;
+        }
+        
+        .firma-line {
+            width: 250px;
+            border-top: 1px solid #000;
+            margin-bottom: 5px;
+        }
+        
+        #footer {
+            position: running(footer);
+            font-size: 8pt;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <!-- Logo UCE público para renderizar en PDF -->
+        <img class="logo" th:if="${logoBase64 != null}" th:src="${logoBase64}" alt="Logo UCE" />
+        <img class="logo" th:unless="${logoBase64 != null}" src="logoUCE.png" alt="Logo UCE" />
+        <div class="header-title">UNIVERSIDAD CENTRAL DEL ECUADOR</div>
+    </div>
+
+
+
+    <div class="facultad-title">FACULTAD DE INGENIERÍA Y CIENCIAS APLICADAS</div>
+    <div class="carrera-title">CARRERA DE <span th:text="${#strings.toUpperCase(carrera)}">[Carrera]</span></div>
+
+    <div class="oficio-info">
+        <p>Oficio N° COM-<span th:text="${anio}">2026</span>-<span th:text="${numeroOficio}">001</span></p>
+        <p>Quito, <span th:text="${fechaEmision}">06 de Junio de 2026</span></p>
+    </div>
+
+    <div class="destinatario">
+        <p>Señor/ita:</p>
+        <p><strong th:text="${#strings.toUpperCase(estudianteNombre)}">[Nombre del Estudiante]</strong></p>
+        <p>Presente.-</p>
+    </div>
+
+    <div class="cuerpo">
+        <p>En concordancia con el <em>Art. 42, 43 y 44 del Reglamento de Régimen Académico, Título V, Capítulo I, sobre la VINCULACIÓN CON LA SOCIEDAD, PRÁCTICAS PREPROFESIONALES Y REDES ACADÉMICAS</em>, pongo en su conocimiento la asignación de sus prácticas pre profesionales de acuerdo con el siguiente detalle:</p>
+    </div>
+
+    <div class="detalle">
+        <p><strong>Período:</strong> <span th:text="${periodo}">[2026-2026]</span></p>
+        <p><strong>Desde:</strong> <span th:text="${fechaInicio}">[Fecha]</span></p>
+        <p><strong>Dependencia/Institución/Profesional:</strong> <span th:text="${#strings.toUpperCase(institucion)}">[Institución]</span></p>
+        <p><strong>Tutor Institucional/Empresa:</strong> <span th:text="${tutorInstitucional}">[Tutor Inst.]</span></p>
+        <p><strong>Tutor Académico/Docente:</strong> <span th:text="${tutorAcademico}">[Tutor Acad.]</span></p>
+    </div>
+
+    <div class="cuerpo">
+        <p>Para realizar sus actividades de prácticas pre profesionales, usted dispondrá máximo de 06 horas diarias, pudiendo llegar a un acuerdo entre el jefe inmediato superior o tutor institucional y el tutor académico, priorizando el horario académico del estudiante.</p>
+        <p>Una vez finalizadas sus prácticas pre profesionales, deberá solicitar a su tutor institucional que realice la entrega de la documentación (CERTIFICADO E INFORME FINAL / uno por estudiante), completando todos los campos de los formatos y con la firma de responsabilidad, y sea enviado al correo electrónico del tutor académico, con asunto: "Documentación final prácticas de <span th:text="${estudianteNombre}"></span>". <u>El tutor académico es quien debe realizar la entrega del expediente completo al Subdecanato.</u></p>
+    </div>
+
+    <div class="firma-box">
+        <p>Atentamente,</p>
+        <br/><br/><br/>
+        <div class="firma-line"></div>
+        <p><strong th:text="${directorCarrera}">[Nombre Director]</strong></p>
+        <p><strong>DIRECTOR/A</strong></p>
+        <p><strong>FACULTAD DE INGENIERÍA Y CIENCIAS APLICADAS</strong></p>
+        <p>fing.direccion.computacion@uce.edu.ec</p>
+    </div>
+
+</body>
+</html>
