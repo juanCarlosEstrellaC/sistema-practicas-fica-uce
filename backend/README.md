@@ -1,27 +1,27 @@
 # API PP & VCS - Universidad Central del Ecuador (UCE)
 
-Backend para el Sistema de Gestión de Prácticas Preprofesionales (PP) y Vinculación con la Sociedad (VCS) de la Facultad de Ingeniería y Ciencias Aplicadas de la Universidad Central del Ecuador.
+Backend para el Sistema de Gestion de Practicas Preprofesionales (PP) y Vinculacion con la Sociedad (VCS) de la Facultad de Ingenieria y Ciencias Aplicadas de la Universidad Central del Ecuador.
 
 ---
 
-## Tecnologías Principales
+## Tecnologias Principales
 
 * **Lenguaje:** Java 25
 * **Framework:** Spring Boot 4.0.5
 * **Persistencia:** Spring Data JPA / Hibernate
 * **Seguridad:** Spring Security + JSON Web Tokens (JJWT)
-* **Base de Datos Principal:** PostgreSQL 15+
+* **Base de Datos Principal:** PostgreSQL
 * **Base de Datos de Pruebas:** H2 Database (en memoria)
-* **Generación de Documentos:** OpenHTMLtoPDF (certificados, cartas y avales en PDF)
+* **Generacion de Documentos:** OpenHTMLtoPDF (certificados, cartas y avales en PDF)
 * **Mapeo de Entidades / DTOs:** MapStruct 1.6.3
-* **Librerías Utilitarias:** Lombok, Apache POI (manejo de reportes Excel)
-* **Automatización de Compilación:** Gradle con Kotlin DSL (`build.gradle.kts`)
+* **Librerias Utilitarias:** Lombok, Apache POI (manejo de reportes Excel)
+* **Automatizacion de Compilacion:** Gradle con Kotlin DSL (`build.gradle.kts`)
 
 ---
 
 ## Estructura del Proyecto
 
-El código fuente sigue una arquitectura en capas limpia y desacoplada:
+El codigo fuente sigue una arquitectura en capas limpia y desacoplada:
 
 ```text
 src/
@@ -29,108 +29,104 @@ src/
 │   ├── java/com/uce/api_pp_uce/
 │   │   ├── config/            # Configuraciones globales (CORS, MVC, Storage, Jackson)
 │   │   ├── controllers/       # Endpoints REST (Auth, Usuarios, Carreras, Periodos)
-│   │   │   ├── pp/            # Controladores de Prácticas Preprofesionales
-│   │   │   └── vcs/           # Controladores de Vinculación con la Sociedad
-│   │   ├── dtos/              # Data Transfer Objects para peticiones y respuestas
+│   │   │   ├── pp/            # Controladores de Practicas Preprofesionales
+│   │   │   └── vcs/           # Controladores de Vinculacion con la Sociedad
+│   │   ├── dtos/              # Data Transfer Objects para requests y responses
 │   │   ├── entities/          # Entidades JPA persistentes
-│   │   │   ├── pp/            # Entidades del módulo de Prácticas
-│   │   │   └── vcs/           # Entidades del módulo de Vinculación
+│   │   │   ├── pp/            # Entidades del modulo de Practicas
+│   │   │   └── vcs/           # Entidades del modulo de Vinculacion
 │   │   ├── enums/             # Tipos enumerados de dominio
 │   │   ├── excepciones/       # Manejador global de excepciones (@ControllerAdvice)
 │   │   ├── exportadores/      # Generadores de PDF con plantillas HTML
-│   │   ├── mapeadores/        # Mappers construidos con MapStruct
+│   │   ├── mapeadores/        # Mappers con MapStruct
 │   │   ├── repositories/      # Repositorios JPA de acceso a datos
-│   │   ├── security/          # Filtros JWT, UserDetailsService y seguridad
-│   │   └── services/          # Lógica de negocio y servicios transaccionales
+│   │   ├── security/          # Filtros JWT, UserDetailsService y configuracion de seguridad
+│   │   └── services/          # Logica de negocio y servicios
 │   └── resources/
-│       ├── application.properties # Parametrización del entorno
+│       ├── application.properties # Parametrizacion del entorno
 │       ├── templates/             # Plantillas HTML/Thymeleaf para PDFs
-│       └── db/                    # Fuente de verdad de base de datos
+│       └── db/                    # Unica fuente de verdad de base de datos
 │           ├── schema.sql         # Esquema DDL relacional sincronizado con JPA
 │           ├── dummy_inicial.sql  # Semilla 1: Arranque desde cero (Admin Subdecano + Carreras)
 │           ├── dummy_completo.sql # Semilla 2: Dataset completo para pruebas locales
-│           └── seeds/csv/         # Archivos CSV para prueba de importación masiva
-└── test/                      # Suite de pruebas unitarias y de integración
+│           └── seeds/csv/         # Archivos CSV para prueba de importacion masiva
+└── test/                      # Suite de pruebas unitarias y de integracion
 ```
 
 ---
 
 ## Requisitos Previos
 
-Antes de compilar y ejecutar este backend, asegúrese de contar con:
-
-1. **Java Development Kit (JDK):** Versión 25 o superior instalada y configurada en la variable de entorno `JAVA_HOME`.
-2. **PostgreSQL:** Versión 15 o superior ejecutándose en el puerto estándar `5432`.
-3. **Gradle Wrapper:** No se requiere instalación manual de Gradle; el proyecto incluye los ejecutables oficiales (`gradlew` y `gradlew.bat`).
+1. **Java Development Kit (JDK):** Version 25 o superior instalada y configurada en la variable de entorno `JAVA_HOME`.
+2. **PostgreSQL:** Version 15 o superior ejecutandose en el puerto 5432.
+3. **Gradle:** No se requiere instalacion previa, el proyecto cuenta con el wrapper oficial (`gradlew` / `gradlew.bat`).
 
 ---
 
-## Configuración de la Base de Datos
+## Configuracion de la Base de Datos
 
-Usted puede sobrescribir los parámetros de conexión mediante variables de entorno del sistema o editando el archivo `src/main/resources/application.properties`:
+Por defecto, la aplicacion busca una base de datos PostgreSQL llamada `api_pp_db`. Puedes sobreescribir la conexion mediante variables de entorno o editando `src/main/resources/application.properties`:
 
-| Propiedad / Variable de Entorno | Valor por Defecto | Descripción |
+| Propiedad / Variable de Entorno | Valor por Defecto | Descripcion |
 | :--- | :--- | :--- |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/db_practicas_fica_uce` | URL de conexión JDBC |
-| `SPRING_DATASOURCE_USERNAME` | `postgres` | Usuario administrador de la base de datos |
-| `SPRING_DATASOURCE_PASSWORD` | `postgres123` | Contraseña de acceso a PostgreSQL |
-| `JWT_SECRET` | *(Clave predeterminada de 256 bits)* | Llave secreta para la firma y verificación de tokens JWT |
-| `JWT_EXPIRATION` | `28800000` (8 horas) | Tiempo de vigencia del token de autenticación en milisegundos |
-| `app.almacenamiento.ruta-base` | `archivos_subidos` | Directorio para almacenamiento físico de archivos y evidencias |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/api_pp_db` | URL de conexion JDBC |
+| `SPRING_DATASOURCE_USERNAME` | `postgres` | Usuario de base de datos |
+| `SPRING_DATASOURCE_PASSWORD` | `labcom,2015` | Clave de base de datos |
+| `JWT_SECRET` | *(Clave predeterminada)* | Llave secreta para firma de tokens JWT |
+| `JWT_EXPIRATION` | `28800000` (8 horas) | Tiempo de validez del token en milisegundos |
+| `app.almacenamiento.ruta-base` | `archivos_subidos` | Directorio local de almacenamiento de archivos |
 
 ---
 
 ## Semillas de Datos (Dummies)
 
-En `src/main/resources/application.properties`, usted puede seleccionar el conjunto de datos de prueba a cargar modificando la propiedad `spring.sql.init.data-locations`:
+En `src/main/resources/application.properties` se pueden seleccionar los datos a cargar modificando la propiedad `spring.sql.init.data-locations`:
 
-* **Modo Mínimo (`dummy_inicial.sql`):**
-  Carga los usuarios base de cada rol institucional (`SUBDECANO`, `DIRECTOR_CARRERA`, `COORDINADOR_PRACTICAS`, `TUTOR_ACADEMICO`, `ESTUDIANTE`), un periodo académico activo y las 5 carreras de la facultad:
+* **Modo Minimo (`dummy_inicial.sql`):**
+  Carga los usuarios base por cada rol (`SUBDECANO`, `DIRECTOR_CARRERA`, `COORDINADOR_PRACTICAS`, `TUTOR_ACADEMICO`, `ESTUDIANTE`), un periodo academico activo y las 5 carreras base de la facultad:
   * **Subdecano:** `aperez@uce.edu.ec`
   * **Director de Carrera:** `zruiz@uce.edu.ec`
-  * **Coordinador de Prácticas:** `gmoncayo@uce.edu.ec`
-  * **Tutor Académico:** `jsalvador@uce.edu.ec`
+  * **Coordinador de Practicas:** `gmoncayo@uce.edu.ec`
+  * **Tutor Academico:** `jsalvador@uce.edu.ec`
   * **Estudiante:** `jcestrella@uce.edu.ec`
-  * **Contraseña general de prueba:** `123456`
+  * **Contrasenia general:** `123456`
 
 * **Modo Completo (`dummy_completo.sql`):**
-  Carga 41 usuarios (estudiantes, docentes tutores, directores de carrera, coordinadores y autoridades), convenios activos, proyectos comunitarios y procesos de asignación completos.
+  Carga 41 usuarios (Estudiantes, Tutores, Directores de Carrera, Coordinadores de Practicas y Subdecano), convenios activos, proyectos comunitarios y procesos de prueba.
 
 ---
 
-## Comandos de Ejecución
+## Comandos de Ejecucion
 
-### Iniciar la aplicación en modo desarrollo
-En entornos Windows (PowerShell):
+### Iniciar la aplicacion
+En Windows (PowerShell):
 ```powershell
 .\gradlew.bat bootRun
 ```
 
-En entornos Linux / macOS:
+En Linux / macOS:
 ```bash
 ./gradlew bootRun
 ```
 
-La API REST quedará accesible en: `http://localhost:8080/api/v1`
+La API quedara accesible en: `http://localhost:8080/api/v1`
 
-### Ejecutar la suite de pruebas
-Para ejecutar las pruebas unitarias y de integración del backend:
+### Ejecutar las pruebas
 ```powershell
 .\gradlew.bat test
 ```
 
 ### Construir el artefacto ejecutable (.jar)
-Para generar el archivo ejecutable de producción:
 ```powershell
-.\gradlew.bat build -x test
+.\gradlew.bat build
 ```
-El archivo JAR generado se ubicará en el directorio `build/libs/`.
+El archivo JAR generado se ubicara en `build/libs/`.
 
 ---
 
-## Módulos Funcionales
+## Modulos Funcionales
 
-1. **Autenticación y Seguridad:** Inicio de sesión por JWT, control de intentos fallidos, revocación de tokens, actualización de credenciales bajo estándares NIST SP 800-63B y recuperación mediante correo electrónico.
-2. **Prácticas Preprofesionales (PP):** Gestión integral de convenios institucionales, asignación de plazas a estudiantes, supervisión por parte de tutores académicos y validación de portafolios estudiantiles.
-3. **Vinculación con la Sociedad (VCS):** Planificación de proyectos comunitarios, asignación masiva de estudiantes por carrera, seguimiento de evidencias y emisión de certificados de cumplimiento.
-4. **Acreditación CACES:** Generación, revisión y firma digital de la matriz de acreditación CACES por carrera y periodo académico.
+1. **Autenticacion y Usuarios:** Login por JWT, control de intentos fallidos, versionamiento de tokens, cambio de clave y recuperacion por correo.
+2. **Practicas Preprofesionales (PP):** Gestion de convenios interinstitucionales, asignacion a plazas de practicas, seguimiento de tutores y aprobacion de portafolios.
+3. **Vinculacion con la Sociedad (VCS):** Creacion de proyectos comunitarios, asignacion masiva de estudiantes, revision de bitacoras y emision de certificados de cumplimiento.
+4. **Matriz CACES:** Generacion, revision y firma digital de reportes de acreditacion por carrera y periodo academico.
