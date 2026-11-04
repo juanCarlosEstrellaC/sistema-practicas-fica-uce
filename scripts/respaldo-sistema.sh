@@ -72,3 +72,4 @@ find "${DIR_DESTINO}" -type f \( -name "bd_*.sql.gz" -o -name "archivos_*.tar.gz
 echo "=========================================================="
 echo "Respaldo finalizado exitosamente a las $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=========================================================="
+
