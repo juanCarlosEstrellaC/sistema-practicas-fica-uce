@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-db_practicas_fica_uce}
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Error: DB_PASSWORD es requerida en .env}
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Error: DB_PASSWORD es requerida en .env}"
     ports:
       - "5432:5432"
     volumes:
@@ -37,10 +37,10 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-db_practicas_fica_uce}?stringtype=unspecified&prepareThreshold=0
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Error: DB_PASSWORD es requerida en .env}
+      SPRING_DATASOURCE_PASSWORD: "${DB_PASSWORD:?Error: DB_PASSWORD es requerida en .env}"
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       APP_ALMACENAMIENTO_RUTA_BASE: /app/archivos_subidos
-      JWT_SECRET: ${JWT_SECRET:?Error: JWT_SECRET es requerida en .env}
+      JWT_SECRET: "${JWT_SECRET:?Error: JWT_SECRET es requerida en .env}"
       SPRING_MAIL_HOST: mailpit
       SPRING_MAIL_PORT: 1025
     ports:
@@ -79,6 +79,6 @@ services:
 
 volumes:
   postgres_datos:
-    driver: local
+    external: true
   backend_archivos:
-    driver: local
+    external: true

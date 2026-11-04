@@ -65,18 +65,32 @@ Antes de ejecutar el proyecto en el entorno local, asegúrese de contar con las 
 
 ## Despliegue Rápido con Docker (Recomendado)
 
-Si usted cuenta con [Docker Desktop](https://www.docker.com/) instalado y en ejecución, puede levantar la totalidad del sistema (PostgreSQL, Spring Boot y Next.js) ejecutando el siguiente comando en la raíz del proyecto:
+Si usted cuenta con [Docker Desktop](https://www.docker.com/) instalado y en ejecución, puede levantar la totalidad del sistema (PostgreSQL, Spring Boot, Next.js y Mailpit) siguiendo estos pasos:
 
-```bash
-docker compose up --build
-```
+1. **Configurar las variables de entorno:**
+   Cree su archivo `.env` en la raíz del proyecto copiando la plantilla:
+   ```bash
+   cp .env.example .env
+   ```
+   *(Asegúrese de definir contraseñas y claves seguras para `DB_PASSWORD` y `JWT_SECRET`).*
+
+2. **Crear los volúmenes externos persistentes (una sola vez):**
+   ```bash
+   docker volume create postgres_datos
+   docker volume create backend_archivos
+   ```
+
+3. **Construir y levantar los contenedores:**
+   ```bash
+   docker compose up --build
+   ```
 
 Al finalizar el proceso de inicialización, los servicios estarán disponibles en las siguientes direcciones:
 * **Frontend Web:** `http://localhost:3000`
 * **Backend API REST:** `http://localhost:8080/api/v1`
 * **Bandeja de Correos (Mailpit):** `http://localhost:8025` (buzón web para pruebas de emails, activación de cuentas y recuperación)
 * **Base de Datos PostgreSQL:** Puerto `5432` (Base de datos: `db_practicas_fica_uce`)
-* **Persistencia de Archivos:** Las evidencias y documentos cargados se sincronizan de forma persistente con la carpeta local `./backend/archivos_subidos`.
+* **Persistencia de Archivos:** Las evidencias y documentos cargados se almacenan de forma protegida en el volumen externo `backend_archivos` (inmune a `docker compose down -v`).
 
 Para detener la ejecución de los contenedores, presione `Ctrl + C` o ejecute:
 ```bash
