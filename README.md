@@ -74,6 +74,7 @@ docker compose up --build
 Al finalizar el proceso de inicialización, los servicios estarán disponibles en las siguientes direcciones:
 * **Frontend Web:** `http://localhost:3000`
 * **Backend API REST:** `http://localhost:8080/api/v1`
+* **Bandeja de Correos (Mailpit):** `http://localhost:8025` (buzón web para pruebas de emails, activación de cuentas y recuperación)
 * **Base de Datos PostgreSQL:** Puerto `5432` (Base de datos: `db_practicas_fica_uce`)
 * **Persistencia de Archivos:** Las evidencias y documentos cargados se sincronizan de forma persistente con la carpeta local `./backend/archivos_subidos`.
 

@@ -28,6 +28,7 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class ConfiguracionSeguridad {
 
+    private final FiltroRateLimitLogin filtroRateLimitLogin;
     private final FiltroAutenticacionJwt filtroAutenticacionJwt;
     private final UserDetailsService userDetailsService;
 
@@ -44,6 +45,7 @@ public class ConfiguracionSeguridad {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authenticationProvider(authenticationProvider())
+            .addFilterBefore(filtroRateLimitLogin, FiltroAutenticacionJwt.class)
             .addFilterBefore(filtroAutenticacionJwt, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

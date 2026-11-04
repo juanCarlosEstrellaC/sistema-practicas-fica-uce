@@ -76,14 +76,14 @@ public class UsuarioController {
 
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUBDECANO', 'COORDINADOR_PRACTICAS')")
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<UsuarioDto>> crear(@Valid @RequestBody UsuarioDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new RespuestaApi<>(true, "Usuario creado exitosamente", usuarioService.crear(dto)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUBDECANO', 'COORDINADOR_PRACTICAS')")
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<UsuarioDto>> actualizar(@PathVariable Long id, @Valid @RequestBody UsuarioDto dto) {
         return ResponseEntity.ok(new RespuestaApi<>(true, "Usuario actualizado", usuarioService.actualizar(id, dto)));
     }
@@ -96,7 +96,7 @@ public class UsuarioController {
     }
 
     @PostMapping("/carga-masiva")
-    @PreAuthorize("hasAnyRole('SUBDECANO', 'COORDINADOR_PRACTICAS')")
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<List<UsuarioDto>>> cargaMasivaCsv(@RequestParam("archivo") MultipartFile archivo) {
         List<UsuarioDto> usuarios = usuarioService.cargaMasivaCsv(archivo);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Carga masiva completada exitosamente", usuarios));
@@ -114,7 +114,7 @@ public class UsuarioController {
     }
 
     @PostMapping("/{id}/reenviar-activacion")
-    @PreAuthorize("hasAnyRole('SUBDECANO', 'COORDINADOR_PRACTICAS')")
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<Void>> reenviarActivacion(@PathVariable Long id) {
         usuarioService.reenviarTokenActivacion(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Correo de activación reenviado exitosamente", null));

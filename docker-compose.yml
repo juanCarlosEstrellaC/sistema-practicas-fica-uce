@@ -32,12 +32,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-db_practicas_fica_uce}?stringtype=unspecified&prepareThreshold=0
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       APP_ALMACENAMIENTO_RUTA_BASE: /app/archivos_subidos
+      JWT_SECRET: ${JWT_SECRET:-miclavefsidfjoaijo1264434354545!#$%%#@^^*(()))}
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
     ports:
       - "8080:8080"
     volumes:
@@ -60,6 +65,17 @@ services:
       NEXT_PUBLIC_API_URL: /api/proxy
     ports:
       - "3000:3000"
+
+  # ==========================================
+  # 4. Servidor de Correo de Pruebas (Mailpit)
+  # ==========================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sistema-practicas-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
 volumes:
   postgres_datos:

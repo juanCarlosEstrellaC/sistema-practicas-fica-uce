@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/sistema")
 @RequiredArgsConstructor
-@Profile("!prod")
+@Profile("dev")
 public class SistemaController {
 
     private final SistemaService sistemaService;

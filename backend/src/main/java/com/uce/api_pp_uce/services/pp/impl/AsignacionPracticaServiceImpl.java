@@ -395,14 +395,18 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                                         rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
                                 }
 
-                                Path carpetaBase = Paths.get(System.getProperty("user.dir"),
-                                                rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos");
-                                Path filePath = carpetaBase.resolve(rutaLimpia);
+                                Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
+                                                .toAbsolutePath().normalize();
+                                Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
+
+                                if (!filePath.startsWith(carpetaBase)) {
+                                        throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
+                                }
 
                                 if (!Files.exists(filePath)) {
                                         Path posible = carpetaBase.resolve("cartas_asignacion")
-                                                        .resolve(Paths.get(rutaLimpia).getFileName());
-                                        if (Files.exists(posible)) {
+                                                        .resolve(Paths.get(rutaLimpia).getFileName()).normalize().toAbsolutePath();
+                                        if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
                                                 filePath = posible;
                                         } else {
                                                 throw new RecursoNoEncontradoException(

@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -48,7 +49,8 @@ public class ArchivoServiceImpl implements ArchivoService {
     }
 
     private Path obtenerRutaBase() {
-        return Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos");
+        return Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
+                .toAbsolutePath().normalize();
     }
 
     private Path obtenerRutaAvatares() {
@@ -62,8 +64,8 @@ public class ArchivoServiceImpl implements ArchivoService {
         }
 
         String extension = StringUtils.getFilenameExtension(archivo.getOriginalFilename());
-        if (extension == null || !extension.matches("(?i)^(jpg|jpeg|png)$")) {
-            throw new NegocioException("Solo se permiten imagenes (jpg, jpeg, png)");
+        if (extension == null || !extension.matches("(?i)^(jpg|jpeg|png|webp)$")) {
+            throw new NegocioException("Solo se permiten imagenes (jpg, jpeg, png, webp)");
         }
 
         String filename = identificador + "_" + UUID.randomUUID().toString() + "." + extension;
@@ -103,9 +105,22 @@ public class ArchivoServiceImpl implements ArchivoService {
 
         try {
             String nombreOriginal = archivo.getOriginalFilename();
-            String extension = nombreOriginal != null && nombreOriginal.contains(".")
-                    ? nombreOriginal.substring(nombreOriginal.lastIndexOf("."))
-                    : ".pdf";
+            if (nombreOriginal == null || !nombreOriginal.contains(".")) {
+                throw new NegocioException("El archivo debe tener una extension valida");
+            }
+            String extension = nombreOriginal.substring(nombreOriginal.lastIndexOf(".")).toLowerCase();
+
+            Set<String> extensionesDocumentos = Set.of(".pdf");
+            Set<String> extensionesExcel = Set.of(".xlsx", ".ods", ".xls");
+            Set<String> extensionesImagenes = Set.of(".png", ".jpg", ".jpeg", ".webp");
+
+            boolean esValido = extensionesDocumentos.contains(extension)
+                    || extensionesExcel.contains(extension)
+                    || extensionesImagenes.contains(extension);
+
+            if (!esValido) {
+                throw new NegocioException("Tipo de archivo no permitido (" + extension + "). Solo se aceptan documentos PDF (.pdf), plantillas Excel (.xlsx, .ods) o imagenes (.png, .jpg, .webp).");
+            }
 
             String subcarpetaDestino;
             if (carpeta != null && !carpeta.trim().isEmpty()) {
@@ -203,12 +218,16 @@ public class ArchivoServiceImpl implements ArchivoService {
             Path rutaBase = obtenerRutaBase();
             Path archivo = rutaBase.resolve(rutaLimpia).normalize();
 
+            if (!archivo.toAbsolutePath().startsWith(rutaBase.toAbsolutePath())) {
+                throw new NegocioException("Acceso no permitido: ruta fuera del directorio base");
+            }
+
             // Si no existe directamente, intentar resolver retrocompatibilidad o subcarpetas
             if (!Files.exists(archivo)) {
                 if (!rutaLimpia.contains("/")) {
                     for (TipoArchivoSubido tipo : TipoArchivoSubido.values()) {
-                        Path posibleRuta = rutaBase.resolve(tipo.getSubcarpeta()).resolve(rutaLimpia);
-                        if (Files.exists(posibleRuta)) {
+                        Path posibleRuta = rutaBase.resolve(tipo.getSubcarpeta()).resolve(rutaLimpia).normalize();
+                        if (posibleRuta.toAbsolutePath().startsWith(rutaBase.toAbsolutePath()) && Files.exists(posibleRuta)) {
                             archivo = posibleRuta;
                             break;
                         }
@@ -219,8 +238,8 @@ public class ArchivoServiceImpl implements ArchivoService {
                         String nombreCarpetaPlana = sub.contains("/") ? sub.substring(sub.lastIndexOf("/") + 1) : sub;
                         if (rutaLimpia.startsWith(nombreCarpetaPlana + "/")) {
                             String resto = rutaLimpia.substring(nombreCarpetaPlana.length() + 1);
-                            Path posibleRuta = rutaBase.resolve(sub).resolve(resto);
-                            if (Files.exists(posibleRuta)) {
+                            Path posibleRuta = rutaBase.resolve(sub).resolve(resto).normalize();
+                            if (posibleRuta.toAbsolutePath().startsWith(rutaBase.toAbsolutePath()) && Files.exists(posibleRuta)) {
                                 archivo = posibleRuta;
                                 break;
                             }

@@ -64,16 +64,12 @@ public class AuthServiceImpl implements AuthService {
 
         Optional<Usuario> usuarioOpt = usuarioRepository.findByCorreo(correoNormalizado);
         if (usuarioOpt.isEmpty()) {
-            throw new CredencialesInvalidasException("El correo ingresado no se encuentra registrado en el sistema.");
+            throw new CredencialesInvalidasException("Correo o contraseña incorrectos.");
         }
 
         if (usuarioOpt.get().getEstado() == EstadoUsuario.INACTIVO
                 && usuarioOpt.get().getRol() != RolUsuario.ESTUDIANTE) {
             throw new CredencialesInvalidasException("Su cuenta se encuentra inactiva. Comuníquese con el administrador del sistema.");
-        }
-
-        if (servicioIntentosLogin.estaBloqueado(correoNormalizado)) {
-            throw new CredencialesInvalidasException("Cuenta bloqueada temporalmente por múltiples intentos fallidos. Por favor, intente de nuevo en 15 minutos.");
         }
 
         Authentication autenticacion;
@@ -85,12 +81,7 @@ public class AuthServiceImpl implements AuthService {
                     )
             );
         } catch (BadCredentialsException ex) {
-            servicioIntentosLogin.loginFallido(correoNormalizado);
-            int intentosRestantes = servicioIntentosLogin.getIntentosRestantes(correoNormalizado);
-            if (intentosRestantes == 0) {
-                throw new CredencialesInvalidasException("Cuenta bloqueada temporalmente por múltiples intentos fallidos. Por favor, intente de nuevo en 15 minutos.");
-            }
-            throw new CredencialesInvalidasException("Correo o contraseña incorrectos. Le quedan " + intentosRestantes + " intentos antes de bloquear 15 minutos.");
+            throw new CredencialesInvalidasException("Correo o contraseña incorrectos.");
         }
 
         // Login exitoso: se reinician los intentos fallidos

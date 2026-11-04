@@ -87,20 +87,31 @@ export function ProveedorAutenticacion({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  // Cuentas predeterminadas para la simulación (Actualizadas a MAYÚSCULAS)
-  const VALORES_SIMULACION: Record<string, string> = {
-    ESTUDIANTE: 'jcestrella@uce.edu.ec',
-    TUTOR_ACADEMICO: 'jsalvador@uce.edu.ec',
-    DIRECTOR_CARRERA: 'zruiz@uce.edu.ec',
-    COORDINADOR_PRACTICAS: 'gmoncayo@uce.edu.ec',
-    SUBDECANO: 'aperez@uce.edu.ec'
-  }
+  // Cuentas predeterminadas para la simulacion (solo disponibles en desarrollo)
+  const ES_PRODUCCION = process.env.NODE_ENV === 'production';
+  const VALORES_SIMULACION: Record<string, string> = !ES_PRODUCCION
+    ? {
+        ESTUDIANTE: 'jcestrella@uce.edu.ec',
+        TUTOR_ACADEMICO: 'jsalvador@uce.edu.ec',
+        DIRECTOR_CARRERA: 'zruiz@uce.edu.ec',
+        COORDINADOR_PRACTICAS: 'gmoncayo@uce.edu.ec',
+        SUBDECANO: 'aperez@uce.edu.ec',
+      }
+    : {};
 
-  // Para fines de demostración - cambiar entre roles
-  const cambiarRol = useCallback(async (rol: RolUsuario) => {
-    const correoPorDefecto = VALORES_SIMULACION[rol]
-    await iniciarSesion(correoPorDefecto, '123456')
-  }, [iniciarSesion])
+  // Para fines de demostracion - cambiar entre roles (deshabilitado en produccion)
+  const cambiarRol = useCallback(
+    async (rol: RolUsuario) => {
+      if (ES_PRODUCCION) {
+        return;
+      }
+      const correoPorDefecto = VALORES_SIMULACION[rol];
+      if (correoPorDefecto) {
+        await iniciarSesion(correoPorDefecto, '123456');
+      }
+    },
+    [iniciarSesion, ES_PRODUCCION]
+  );
 
   return (
     <ContextoAutenticacion.Provider value={{ usuario, cargando, iniciarSesion, cerrarSesion, cambiarRol, actualizarUsuario }}>

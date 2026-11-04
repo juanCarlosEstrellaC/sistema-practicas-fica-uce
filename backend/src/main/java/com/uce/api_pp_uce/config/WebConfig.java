@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registro) {
-        Path rutaCarga = Paths.get(rutaBaseAlmacenamiento);
+        Path rutaCarga = Paths.get(rutaBaseAlmacenamiento).toAbsolutePath().normalize();
         String rutaAbsoluta = rutaCarga.toFile().getAbsolutePath().replace("\\", "/");
         if (!rutaAbsoluta.endsWith("/")) {
             rutaAbsoluta += "/";

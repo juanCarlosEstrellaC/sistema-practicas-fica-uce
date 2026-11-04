@@ -38,7 +38,28 @@ async function manejarProxy(peticion: NextRequest, { params }: { params: Promise
     // Propagar la respuesta tal cual (sirve para JSON y para Archivos/Blobs)
     const cabecerasRespuesta = new Headers(respuestaBackend.headers);
     cabecerasRespuesta.delete('content-encoding'); // Dejar que Next.js maneje la compresion
-    cabecerasRespuesta.delete('x-frame-options'); // Eliminar para permitir iframe (evita 'refused to connect')
+
+    const tipoContenido = cabecerasRespuesta.get('content-type') || '';
+    const esArchivoSubido = rutaBackend.startsWith('archivos_subidos') || rutaBackend.startsWith('archivos/');
+
+    if (esArchivoSubido) {
+      // Mitigacion Stored XSS y sniffeo de tipos MIME en archivos servidos por proxy
+      cabecerasRespuesta.set('X-Content-Type-Options', 'nosniff');
+
+      if (tipoContenido.includes('application/pdf')) {
+        cabecerasRespuesta.delete('x-frame-options');
+        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox allow-forms allow-scripts;");
+      } else if (tipoContenido.startsWith('image/')) {
+        cabecerasRespuesta.delete('x-frame-options');
+        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; sandbox;");
+      } else {
+        // Forzar descarga para formatos no previsualizables con seguridad en el navegador
+        cabecerasRespuesta.set('Content-Disposition', 'attachment');
+        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; sandbox;");
+      }
+    } else {
+      cabecerasRespuesta.delete('x-frame-options'); // Eliminar para permitir iframe (evita 'refused to connect')
+    }
     
     return new NextResponse(respuestaBackend.body, {
       status: respuestaBackend.status,

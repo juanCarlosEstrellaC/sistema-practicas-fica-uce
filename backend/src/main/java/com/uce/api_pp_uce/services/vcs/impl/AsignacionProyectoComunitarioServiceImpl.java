@@ -703,15 +703,19 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         if (urlCertificado != null && urlCertificado.contains("/archivos_subidos/")) {
             try {
                 String rutaRelativa = urlCertificado.substring(urlCertificado.indexOf("/archivos_subidos/") + "/archivos_subidos/".length());
-                Path carpetaBase = Paths.get(System.getProperty("user.dir"), rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos");
-                Path filePath = carpetaBase.resolve(rutaRelativa);
+                Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
+                        .toAbsolutePath().normalize();
+                Path filePath = carpetaBase.resolve(rutaRelativa).normalize().toAbsolutePath();
+                if (!filePath.startsWith(carpetaBase)) {
+                    throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
+                }
                 if (!Files.exists(filePath) && !rutaRelativa.contains("/")) {
-                    Path posibleVinculacion = carpetaBase.resolve("vinculacion").resolve(rutaRelativa);
-                    if (Files.exists(posibleVinculacion)) {
+                    Path posibleVinculacion = carpetaBase.resolve("vinculacion").resolve(rutaRelativa).normalize().toAbsolutePath();
+                    if (posibleVinculacion.startsWith(carpetaBase) && Files.exists(posibleVinculacion)) {
                         filePath = posibleVinculacion;
                     } else {
-                        Path posiblePortafolio = carpetaBase.resolve("portafolios").resolve(rutaRelativa);
-                        if (Files.exists(posiblePortafolio)) {
+                        Path posiblePortafolio = carpetaBase.resolve("portafolios").resolve(rutaRelativa).normalize().toAbsolutePath();
+                        if (posiblePortafolio.startsWith(carpetaBase) && Files.exists(posiblePortafolio)) {
                             filePath = posiblePortafolio;
                         }
                     }

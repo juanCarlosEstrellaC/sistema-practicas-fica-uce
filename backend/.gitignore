@@ -34,5 +34,16 @@ out/
 
 ### VS Code ###
 .vscode/
+.agents/
 archivos_subidos/
+archivos_subidos_prueba_1/
+uploads/*
+
+### Entorno y Secretos ###
+.env
+.env.*
+!.env.example
+application-local.properties
+application-*.properties.local
+
 

@@ -442,34 +442,26 @@ export function SidebarDashboard({
           <div className="shrink-0 pt-2.5 border-t border-sidebar-border mt-auto flex flex-col gap-2">
             {/* Modo Expandido: Visible en móvil siempre, o en desktop si está expandido */}
             <div className={cn(!estaExpandido ? "md:hidden" : "block", "space-y-2")}>
-              {/* Selector de rol y botón de restablecer */}
-              <div className="flex items-center gap-1.5">
-                <Select
-                  value={usuario.rol}
-                  onValueChange={(valor) => alCambiarRol(valor as RolUsuario)}
-                >
-                  <SelectTrigger className="h-8 text-xs bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground flex-1 truncate">
-                    <SelectValue placeholder="Rol de simulación" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SUBDECANO">Subdecano</SelectItem>
-                    <SelectItem value="DIRECTOR_CARRERA">Director de Carrera</SelectItem>
-                    <SelectItem value="COORDINADOR_PRACTICAS">Coordinador Prácticas</SelectItem>
-                    <SelectItem value="TUTOR_ACADEMICO">Tutor Académico</SelectItem>
-                    <SelectItem value="ESTUDIANTE">Estudiante</SelectItem>
-                  </SelectContent>
-                </Select>
-{/* 
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-8 text-[11px] font-bold px-2.5 shrink-0 bg-red-600 hover:bg-red-700 active:scale-95"
-                  onClick={alRestablecerSimulacion}
-                  title="Restablecer datos de simulación"
-                >
-                  Restablecer
-                </Button> */}
-              </div>
+              {/* Selector de rol y boton de restablecer (exclusivo para entorno de desarrollo) */}
+              {process.env.NODE_ENV !== 'production' && (
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={usuario.rol}
+                    onValueChange={(valor) => alCambiarRol(valor as RolUsuario)}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground flex-1 truncate">
+                      <SelectValue placeholder="Rol de simulación" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SUBDECANO">Subdecano</SelectItem>
+                      <SelectItem value="DIRECTOR_CARRERA">Director de Carrera</SelectItem>
+                      <SelectItem value="COORDINADOR_PRACTICAS">Coordinador Prácticas</SelectItem>
+                      <SelectItem value="TUTOR_ACADEMICO">Tutor Académico</SelectItem>
+                      <SelectItem value="ESTUDIANTE">Estudiante</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Tarjeta de Usuario */}
               <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-sidebar-accent/40 border border-sidebar-border/70">
