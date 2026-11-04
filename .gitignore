@@ -52,3 +52,6 @@ next-env.d.ts
 **/archivos_subidos/
 **/archivos_subidos_prueba_1/
 **/uploads/
+respaldos/
+*.sql.gz
+*.tar.gz
