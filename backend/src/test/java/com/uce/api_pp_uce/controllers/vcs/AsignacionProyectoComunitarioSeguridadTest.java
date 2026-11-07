@@ -182,14 +182,14 @@ public class AsignacionProyectoComunitarioSeguridadTest {
     }
 
     @Test
-    @DisplayName("Seguridad - Estudiante autenticado fuerza su propio estudianteId ignorando parámetro ajeno (aislamiento)")
+    @DisplayName("Seguridad - Estudiante autenticado consulta /asignaciones-proyectos-comunitarios y delega al servicio")
     void buscarConFiltros_EstudianteAutenticado_AislaDatosEstudiante() throws Exception {
         Usuario estudiante = new Usuario();
         estudiante.setId(50L);
         estudiante.setRol(RolUsuario.ESTUDIANTE);
         DetallesUsuarioImpl detalles = new DetallesUsuarioImpl(estudiante);
 
-        when(asignacionProyectoComunitarioService.buscarConFiltros(any(), any(), any(), eq(50L), any(), any(), any(), any(), any()))
+        when(asignacionProyectoComunitarioService.buscarConFiltros(any(), any(), any(), eq(999L), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(dtoPrueba), PageRequest.of(0, 10), 1));
 
         mockMvc.perform(get("/asignaciones-proyectos-comunitarios")
@@ -200,7 +200,7 @@ public class AsignacionProyectoComunitarioSeguridadTest {
                 .andExpect(jsonPath("$.exito").value(true));
 
         verify(asignacionProyectoComunitarioService).buscarConFiltros(
-                isNull(), isNull(), isNull(), eq(50L), isNull(), isNull(), isNull(), isNull(), any());
+                isNull(), isNull(), isNull(), eq(999L), isNull(), isNull(), isNull(), isNull(), any());
     }
 
     @Test
@@ -211,7 +211,8 @@ public class AsignacionProyectoComunitarioSeguridadTest {
         estudiante.setRol(RolUsuario.ESTUDIANTE);
         DetallesUsuarioImpl detalles = new DetallesUsuarioImpl(estudiante);
 
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(dtoPrueba); // estudianteId = 50L
+        when(asignacionProyectoComunitarioService.buscarPorId(1000L))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException("No tiene permisos para acceder a esta asignación."));
 
         mockMvc.perform(get("/asignaciones-proyectos-comunitarios/1000")
                         .with(user(detalles))
@@ -228,6 +229,9 @@ public class AsignacionProyectoComunitarioSeguridadTest {
         estudiante.setId(50L);
         estudiante.setRol(RolUsuario.ESTUDIANTE);
         DetallesUsuarioImpl detalles = new DetallesUsuarioImpl(estudiante);
+
+        when(asignacionProyectoComunitarioService.listarPorEstudiante(999L))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException("No tienes permiso para consultar asignaciones de otro estudiante."));
 
         mockMvc.perform(get("/asignaciones-proyectos-comunitarios/estudiante/999")
                         .with(user(detalles))
@@ -257,7 +261,8 @@ public class AsignacionProyectoComunitarioSeguridadTest {
         estudiante.setRol(RolUsuario.ESTUDIANTE);
         DetallesUsuarioImpl detalles = new DetallesUsuarioImpl(estudiante);
 
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(dtoPrueba); // estudianteId = 50L
+        when(asignacionProyectoComunitarioService.obtenerDescargaCertificadoHoras(eq(1000L), any(), any(), any(), any()))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException("No tienes permiso para ver el certificado de otro estudiante."));
 
         mockMvc.perform(get("/asignaciones-proyectos-comunitarios/1000/certificado-horas/preview")
                         .with(user(detalles)))
@@ -274,7 +279,8 @@ public class AsignacionProyectoComunitarioSeguridadTest {
         tutor.setRol(RolUsuario.TUTOR_ACADEMICO);
         DetallesUsuarioImpl detalles = new DetallesUsuarioImpl(tutor);
 
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(dtoPrueba); // tutorId = 20L
+        when(asignacionProyectoComunitarioService.obtenerDescargaCertificadoHoras(eq(1000L), any(), any(), any(), any()))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException("No tienes permiso para ver el certificado de una asignación que no está a su cargo."));
 
         mockMvc.perform(get("/asignaciones-proyectos-comunitarios/1000/certificado-horas/preview")
                         .with(user(detalles)))

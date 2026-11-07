@@ -6,9 +6,6 @@ import com.uce.api_pp_uce.dtos.NotificacionRespuestaDto;
 import com.uce.api_pp_uce.services.NotificacionService;
 import com.uce.api_pp_uce.services.NotificacionSseService;
 import lombok.RequiredArgsConstructor;
-import com.uce.api_pp_uce.excepciones.NegocioException;
-import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -32,10 +29,7 @@ public class NotificacionController {
 
     @GetMapping("/stream/{usuarioId}")
     @PreAuthorize("isAuthenticated()")
-    public SseEmitter streamNotificaciones(
-            @PathVariable Long usuarioId,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadNotificacion(usuarioId, detallesUsuario);
+    public SseEmitter streamNotificaciones(@PathVariable Long usuarioId) {
         return notificacionSseService.suscribir(usuarioId);
     }
 
@@ -43,9 +37,7 @@ public class NotificacionController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RespuestaApi<Page<NotificacionRespuestaDto>>> listarPorUsuario(
             @PathVariable Long usuarioId,
-            Pageable pageable,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadNotificacion(usuarioId, detallesUsuario);
+            Pageable pageable) {
         Page<NotificacionRespuestaDto> notificaciones = notificacionService.listarPorUsuario(usuarioId, pageable);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Notificaciones obtenidas", notificaciones));
     }
@@ -59,10 +51,7 @@ public class NotificacionController {
 
     @PatchMapping("/usuario/{usuarioId}/leer-todas")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<RespuestaApi<Integer>> marcarTodasComoLeidas(
-            @PathVariable Long usuarioId,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadNotificacion(usuarioId, detallesUsuario);
+    public ResponseEntity<RespuestaApi<Integer>> marcarTodasComoLeidas(@PathVariable Long usuarioId) {
         int actualizadas = notificacionService.marcarTodasComoLeidas(usuarioId);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Todas las notificaciones marcadas como leídas", actualizadas));
     }
@@ -72,11 +61,5 @@ public class NotificacionController {
     public ResponseEntity<RespuestaApi<Void>> crearNotificacion(@RequestBody NotificacionDto dto) {
         notificacionService.enviar(dto.usuarioId(), dto.titulo(), dto.mensaje(), dto.tipo(), dto.accionUrl());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Notificación creada", null));
-    }
-
-    private void validarPropiedadNotificacion(Long usuarioId, DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && !detallesUsuario.getUsuario().getId().equals(usuarioId)) {
-            throw new NegocioException("No tienes permiso para acceder a las notificaciones de otro usuario");
-        }
     }
 }

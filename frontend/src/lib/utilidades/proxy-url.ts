@@ -40,7 +40,8 @@ export function adaptarUrlProxy(urlStr?: string | null): string {
     urlStr.startsWith('/asignaciones-proyectos-comunitarios') ||
     urlStr.startsWith('/documentos') ||
     urlStr.startsWith('/convenios') ||
-    urlStr.startsWith('/proyectos-comunitarios')
+    urlStr.startsWith('/proyectos-comunitarios') ||
+    urlStr.startsWith('/evidencias-vcs')
   ) {
     return `/api/proxy${urlStr}`;
   }

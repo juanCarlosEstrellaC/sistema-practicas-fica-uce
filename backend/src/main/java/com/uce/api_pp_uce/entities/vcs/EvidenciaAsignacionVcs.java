@@ -19,7 +19,6 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
 
@@ -27,7 +26,6 @@ import java.time.LocalDateTime;
 @Table(name = "evidencias_asignaciones_vcs")
 @SQLDelete(sql = "UPDATE evidencias_asignaciones_vcs SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class EvidenciaAsignacionVcs {

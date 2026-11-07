@@ -18,7 +18,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
 
@@ -26,7 +25,6 @@ import java.time.LocalDateTime;
 @Table(name = "documentos_portafolio")
 @SQLDelete(sql = "UPDATE documentos_portafolio SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class DocumentoPortafolio {

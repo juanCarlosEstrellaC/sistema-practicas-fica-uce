@@ -542,4 +542,112 @@ public class UsuarioServiceTest {
         assertEquals(RolUsuario.TUTOR_ACADEMICO, subdecanoActual.getRol());
         assertEquals(6L, subdecanoActual.getVersionToken());
     }
+
+    @Test
+    @DisplayName("Deberia lanzar excepcion si un estudiante intenta consultar el perfil de otro usuario")
+    void buscarPorId_EstudianteConsultaOtroUsuario_LanzaNegocioException() {
+        Usuario estudianteLogueado = new Usuario();
+        estudianteLogueado.setId(10L);
+        estudianteLogueado.setRol(RolUsuario.ESTUDIANTE);
+
+        Usuario otroUsuario = new Usuario();
+        otroUsuario.setId(20L);
+        otroUsuario.setRol(RolUsuario.ESTUDIANTE);
+
+        when(usuarioRepository.findById(20L)).thenReturn(Optional.of(otroUsuario));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudianteLogueado);
+
+        NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.buscarPorId(20L));
+        assertEquals("No tiene permiso para consultar el perfil de otro usuario", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deberia lanzar excepcion si un director intenta consultar un usuario de otra carrera")
+    void buscarPorId_DirectorConsultaOtraCarrera_LanzaNegocioException() {
+        Carrera carreraA = new Carrera();
+        carreraA.setId(1);
+
+        Carrera carreraB = new Carrera();
+        carreraB.setId(2);
+
+        Usuario directorLogueado = new Usuario();
+        directorLogueado.setId(10L);
+        directorLogueado.setRol(RolUsuario.DIRECTOR_CARRERA);
+        directorLogueado.setCarrera(carreraA);
+
+        Usuario usuarioOtraCarrera = new Usuario();
+        usuarioOtraCarrera.setId(20L);
+        usuarioOtraCarrera.setCarrera(carreraB);
+
+        when(usuarioRepository.findById(20L)).thenReturn(Optional.of(usuarioOtraCarrera));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(directorLogueado);
+
+        NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.buscarPorId(20L));
+        assertEquals("No tiene permiso para consultar información de usuarios de otra carrera", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deberia permitir a un director consultar un usuario de su misma carrera")
+    void buscarPorId_DirectorConsultaMismaCarrera_Exitoso() {
+        Carrera carreraA = new Carrera();
+        carreraA.setId(1);
+
+        Usuario directorLogueado = new Usuario();
+        directorLogueado.setId(10L);
+        directorLogueado.setRol(RolUsuario.DIRECTOR_CARRERA);
+        directorLogueado.setCarrera(carreraA);
+
+        Usuario usuarioMismaCarrera = new Usuario();
+        usuarioMismaCarrera.setId(20L);
+        usuarioMismaCarrera.setRol(RolUsuario.ESTUDIANTE);
+        usuarioMismaCarrera.setCarrera(carreraA);
+
+        when(usuarioRepository.findById(20L)).thenReturn(Optional.of(usuarioMismaCarrera));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(directorLogueado);
+
+        UsuarioDto resultado = usuarioService.buscarPorId(20L);
+        assertNotNull(resultado);
+        assertEquals(20L, resultado.id());
+    }
+
+    @Test
+    @DisplayName("Deberia lanzar excepcion si un usuario intenta cambiar contrasenia de otra cuenta sin ser Subdecano")
+    void cambiarContrasenia_CuentaAjena_LanzaNegocioException() {
+        Usuario usuarioLogueado = new Usuario();
+        usuarioLogueado.setId(10L);
+        usuarioLogueado.setRol(RolUsuario.ESTUDIANTE);
+
+        CambiarContraseniaDto dto = new CambiarContraseniaDto("Vieja123!", "NuevaSegura123!");
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(usuarioLogueado);
+
+        NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.cambiarContrasenia(20L, dto));
+        assertEquals("No tiene permiso para modificar la cuenta de otro usuario", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deberia lanzar excepcion si un usuario intenta validar contrasenia de otra cuenta sin ser Subdecano")
+    void validarContrasenia_CuentaAjena_LanzaNegocioException() {
+        Usuario usuarioLogueado = new Usuario();
+        usuarioLogueado.setId(10L);
+        usuarioLogueado.setRol(RolUsuario.ESTUDIANTE);
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(usuarioLogueado);
+
+        NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.validarContrasenia(20L, "clave"));
+        assertEquals("No tiene permiso para modificar la cuenta de otro usuario", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deberia lanzar excepcion si un usuario intenta actualizar avatar de otra cuenta sin ser Subdecano")
+    void actualizarAvatar_CuentaAjena_LanzaNegocioException() {
+        Usuario usuarioLogueado = new Usuario();
+        usuarioLogueado.setId(10L);
+        usuarioLogueado.setRol(RolUsuario.ESTUDIANTE);
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(usuarioLogueado);
+
+        NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.actualizarAvatar(20L, "http://avatar.jpg"));
+        assertEquals("No tiene permiso para modificar la cuenta de otro usuario", ex.getMessage());
+    }
 }

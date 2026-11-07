@@ -1,6 +1,5 @@
 package com.uce.api_pp_uce.config;
 
-import com.uce.api_pp_uce.enums.TipoArchivoSubido;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -8,8 +7,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
@@ -25,16 +22,24 @@ public class WebConfig implements WebMvcConfigurer {
             rutaAbsoluta += "/";
         }
 
-        List<String> ubicaciones = new ArrayList<>();
-        ubicaciones.add("file:" + rutaAbsoluta);
-        ubicaciones.add("file:" + rutaAbsoluta + "practicas/");
-        ubicaciones.add("file:" + rutaAbsoluta + "vinculacion/");
-        ubicaciones.add("file:" + rutaAbsoluta + "general/");
-        for (TipoArchivoSubido tipo : TipoArchivoSubido.values()) {
-            ubicaciones.add("file:" + rutaAbsoluta + tipo.getSubcarpeta() + "/");
-        }
+        // Restriccion de seguridad (OWASP ASVS v5.0):
+        // UNICAMENTE se exponen de forma estatica avatares e imagenes/plantillas no confidenciales.
+        // Los documentos protegidos (portafolios, cartas, avales, matrices, convenios, evidencias)
+        // se sirven exclusivamente mediante controladores con autorizacion y validacion BOLA/IDOR.
+        registro.addResourceHandler(
+                "/archivos_subidos/avatars/**",
+                "/archivos_subidos/general/avatars/**"
+        ).addResourceLocations(
+                "file:" + rutaAbsoluta + "general/avatars/",
+                "file:" + rutaAbsoluta + "avatars/"
+        );
 
-        registro.addResourceHandler("/archivos_subidos/**")
-                .addResourceLocations(ubicaciones.toArray(new String[0]));
+        registro.addResourceHandler(
+                "/archivos_subidos/plantillas/**",
+                "/archivos_subidos/general/plantillas/**"
+        ).addResourceLocations(
+                "file:" + rutaAbsoluta + "general/plantillas/",
+                "file:" + rutaAbsoluta + "plantillas/"
+        );
     }
 }

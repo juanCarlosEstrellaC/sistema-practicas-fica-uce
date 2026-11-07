@@ -16,6 +16,7 @@ import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.excepciones.RecursoNoEncontradoException;
 import com.uce.api_pp_uce.services.ArchivoService;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.pp.impl.MatrizCacesServiceImpl;
 import jakarta.persistence.EntityManager;
 import com.uce.api_pp_uce.exportadores.pp.MatrizCacesExcelExportador;
@@ -69,6 +70,9 @@ class MatrizCacesServiceTest {
 
     @Mock
     private ArchivoService archivoService;
+
+    @Mock
+    private UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Spy
     private MatrizCacesMapeador matrizCacesMapeador = Mappers.getMapper(MatrizCacesMapeador.class);
@@ -329,5 +333,51 @@ class MatrizCacesServiceTest {
         assertNotNull(resultado);
         assertEquals(4, resultado.length);
         assertEquals(9, resultado[0]);
+    }
+
+    @Test
+    @DisplayName("validarCarrera - Lanza NegocioException si usuario autenticado es de otra carrera")
+    void listarPorCarrera_UsuarioDeOtraCarrera_LanzaNegocioException() {
+        Carrera carreraOtra = new Carrera();
+        carreraOtra.setId(99);
+        Usuario dcAjeno = new Usuario();
+        dcAjeno.setId(88L);
+        dcAjeno.setRol(RolUsuario.DIRECTOR_CARRERA);
+        dcAjeno.setCarrera(carreraOtra);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(dcAjeno);
+
+        NegocioException ex = assertThrows(NegocioException.class, () ->
+                matrizCacesService.listarPorCarrera(1, PageRequest.of(0, 10)));
+        assertTrue(ex.getMessage().contains("otra carrera"));
+    }
+
+    @Test
+    @DisplayName("validarCarrera - Permite acceso si el usuario es SUBDECANO sin importar la carrera")
+    void listarPorCarrera_Subdecano_Permitido() {
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(subdecanoMock);
+        when(matrizCacesRepository.findByCarreraId(eq(1), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(matrizMock)));
+
+        Page<MatrizCacesDto> resultado = matrizCacesService.listarPorCarrera(1, PageRequest.of(0, 10));
+        assertNotNull(resultado);
+        assertEquals(1, resultado.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("cambiarEstado - Lanza NegocioException si usuario autenticado intenta modificar matriz de otra carrera")
+    void cambiarEstado_UsuarioDeOtraCarrera_LanzaNegocioException() {
+        Carrera carreraOtra = new Carrera();
+        carreraOtra.setId(99);
+        Usuario cppAjeno = new Usuario();
+        cppAjeno.setId(88L);
+        cppAjeno.setRol(RolUsuario.COORDINADOR_PRACTICAS);
+        cppAjeno.setCarrera(carreraOtra);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(cppAjeno);
+
+        when(matrizCacesRepository.findById(100L)).thenReturn(Optional.of(matrizMock));
+
+        NegocioException ex = assertThrows(NegocioException.class, () ->
+                matrizCacesService.cambiarEstado(100L, EstadoMatrizCaces.FIRMADA_POR_DC, "Obs"));
+        assertTrue(ex.getMessage().contains("otra carrera"));
     }
 }

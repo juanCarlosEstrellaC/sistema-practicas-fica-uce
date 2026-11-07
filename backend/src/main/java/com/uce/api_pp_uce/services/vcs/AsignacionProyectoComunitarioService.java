@@ -2,6 +2,9 @@ package com.uce.api_pp_uce.services.vcs;
 
 import java.util.List;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
+import com.uce.api_pp_uce.entities.Usuario;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -81,6 +84,10 @@ public interface AsignacionProyectoComunitarioService {
     ResultadoAprobacionHorasDto aprobarHorasSubdecanato(Long id, AprobarHorasSubdecanatoDto dto);
 
     byte[] vistaPreviaCertificadoHoras(Long id, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo);
+
+    ArchivoDescargaDto obtenerDescargaCertificadoHoras(Long id, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo);
+
+    ArchivoDescargaDto obtenerDescargaCertificadoHoras(Long id, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo, Usuario subdecanoAutenticado);
 
     String obtenerNombreArchivoCertificado(Long id);
 

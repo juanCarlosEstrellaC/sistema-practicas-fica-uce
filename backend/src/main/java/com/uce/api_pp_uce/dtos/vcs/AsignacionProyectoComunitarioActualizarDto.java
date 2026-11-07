@@ -10,7 +10,7 @@ public record AsignacionProyectoComunitarioActualizarDto(
 
         @NotNull(message = "El número de horas es obligatorio")
         @Positive(message = "El número de horas debe ser mayor a 0")
-        @Max(value = 500, message = "El número de horas no puede superar el límite permitido (500h)")
+        @Max(value = 160, message = "El número de horas no puede superar las 160h reglamentarias")
         Integer horasAsignadas) {
 
 }

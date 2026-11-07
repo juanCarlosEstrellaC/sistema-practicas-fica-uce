@@ -133,8 +133,7 @@ class DocumentoControllerTest {
 
         when(documentoService.resubirDocumento(
                 any(Long.class),
-                any(DocumentoResubirDto.class),
-                nullable(Usuario.class)
+                any(DocumentoResubirDto.class)
         )).thenReturn(respuesta);
 
         mockMvc.perform(put("/documentos/1/resubir")

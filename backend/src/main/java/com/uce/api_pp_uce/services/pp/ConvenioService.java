@@ -2,6 +2,7 @@ package com.uce.api_pp_uce.services.pp;
 
 import com.uce.api_pp_uce.enums.pp.EstadoConvenio;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.ConvenioDto;
 import com.uce.api_pp_uce.dtos.pp.NuevoConvenioDto;
 import org.springframework.data.domain.Page;
@@ -24,4 +25,6 @@ public interface ConvenioService {
     void eliminarConvenio(Long id);
 
     Page<ConvenioDto> buscarConveniosActivosYCuposDisponibles(Pageable pageable);
+
+    ArchivoDescargaDto obtenerConvenioDescarga(Long id);
 }

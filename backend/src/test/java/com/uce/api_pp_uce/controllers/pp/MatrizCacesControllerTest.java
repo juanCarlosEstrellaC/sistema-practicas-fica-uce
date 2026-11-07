@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.controllers.pp;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.MatrizCacesDto;
 import com.uce.api_pp_uce.enums.pp.EstadoMatrizCaces;
 import com.uce.api_pp_uce.excepciones.ManejadorExcepcionesGlobal;
@@ -141,9 +142,10 @@ class MatrizCacesControllerTest {
     @DisplayName("GET /matrices-caces/{id}/excel - Debe descargar reporte en Excel")
     void descargarExcel_Exitoso() throws Exception {
         byte[] bytesFalsos = new byte[]{1, 2, 3, 4};
-        when(matrizCacesService.generarExcelMatrizCaces(1L)).thenReturn(bytesFalsos);
-        when(matrizCacesService.obtenerPorId(1L)).thenReturn(new MatrizCacesDto(
-                1L, 10L, 1, "Computacion", "COM", EstadoMatrizCaces.PENDIENTE, LocalDateTime.now(), null, null
+        when(matrizCacesService.obtenerDescargaExcel(1L)).thenReturn(new ArchivoDescargaDto(
+                bytesFalsos,
+                "Matriz CACES - Computacion - Periodo.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ));
 
         mockMvc.perform(get("/matrices-caces/1/excel"))
@@ -155,9 +157,10 @@ class MatrizCacesControllerTest {
     @DisplayName("GET /matrices-caces/{id}/excel - Debe descargar archivo firmado si ya existe")
     void descargarExcel_ConArchivoFirmado_Exitoso() throws Exception {
         byte[] bytesFalsos = new byte[]{1, 2, 3, 4};
-        when(matrizCacesService.generarExcelMatrizCaces(1L)).thenReturn(bytesFalsos);
-        when(matrizCacesService.obtenerPorId(1L)).thenReturn(new MatrizCacesDto(
-                1L, 10L, 1, "Computacion", "COM", EstadoMatrizCaces.FIRMADA_POR_DC, LocalDateTime.now(), "/archivos_subidos/matrices_caces/firmado.xlsx", null
+        when(matrizCacesService.obtenerDescargaExcel(1L)).thenReturn(new ArchivoDescargaDto(
+                bytesFalsos,
+                "Matriz CACES - Computacion - Periodo - Firmada por DC.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ));
 
         mockMvc.perform(get("/matrices-caces/1/excel"))

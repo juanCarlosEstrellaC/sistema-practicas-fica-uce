@@ -60,6 +60,9 @@ class ProyectoComunitarioServiceTest {
     @Mock
     private NotificacionService notificacionService;
 
+    @Mock
+    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+
     @InjectMocks
     private ProyectoComunitarioServiceImpl proyectoComunitarioService;
 
@@ -139,6 +142,41 @@ class ProyectoComunitarioServiceTest {
         when(proyectoComunitarioRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(RecursoNoEncontradoException.class, () -> proyectoComunitarioService.buscarPorId(99L));
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Como DIRECTOR_CARRERA deniega acceso si el proyecto pertenece a otra carrera (403)")
+    void buscarPorId_ComoDirector_DeniegaAccesoSiEsDeOtraCarrera() {
+        Usuario director = new Usuario();
+        director.setId(99L);
+        director.setRol(com.uce.api_pp_uce.enums.RolUsuario.DIRECTOR_CARRERA);
+        Carrera otraCarrera = new Carrera();
+        otraCarrera.setId(999);
+        director.setCarrera(otraCarrera);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(director);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () ->
+                proyectoComunitarioService.buscarPorId(10L));
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Como TUTOR_ACADEMICO deniega acceso si el proyecto está asignado a otro tutor (403)")
+    void buscarPorId_ComoTutor_DeniegaAccesoSiEsDeOtroTutor() {
+        Usuario tutorActual = new Usuario();
+        tutorActual.setId(99L);
+        tutorActual.setRol(com.uce.api_pp_uce.enums.RolUsuario.TUTOR_ACADEMICO);
+
+        Usuario otroTutor = new Usuario();
+        otroTutor.setId(88L);
+        proyectoMock.setTutorAcademico(otroTutor);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutorActual);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () ->
+                proyectoComunitarioService.buscarPorId(10L));
     }
 
     @Test

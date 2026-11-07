@@ -14,7 +14,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,7 +23,6 @@ import java.time.LocalDateTime;
 @Table(name = "convenios")
 @SQLDelete(sql = "UPDATE convenios SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class Convenio {

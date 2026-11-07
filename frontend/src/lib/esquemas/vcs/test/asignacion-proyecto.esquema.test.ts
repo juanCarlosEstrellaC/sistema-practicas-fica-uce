@@ -73,6 +73,22 @@ describe('esquemas de asignacion a proyectos comunitarios (Zod Validation)', () 
         expect(resultado.error.issues[0].message).toContain('El número de horas debe ser mayor a cero');
       }
     });
+
+    it('debe fallar si las horas asignadas superan las 160 horas reglamentarias', () => {
+      const datosHorasExcesivas = {
+        estudiantesId: [1],
+        proyectoComunitarioId: 10,
+        horasAsignadas: 161,
+        carreraId: 1,
+        periodoAcademicoId: 2,
+      };
+
+      const resultado = esquemaAsignacionProyectoComunitario.safeParse(datosHorasExcesivas);
+      expect(resultado.success).toBe(false);
+      if (!resultado.success) {
+        expect(resultado.error.issues[0].message).toContain('El número de horas no puede superar 160');
+      }
+    });
   });
 
   describe('esquemaAsignacionProyectoComunitarioActualizar (Actualizar Asignacion)', () => {
@@ -94,6 +110,19 @@ describe('esquemas de asignacion a proyectos comunitarios (Zod Validation)', () 
 
       const resultado = esquemaAsignacionProyectoComunitarioActualizar.safeParse(datosInvalidos);
       expect(resultado.success).toBe(false);
+    });
+
+    it('debe fallar si las horas asignadas en actualizacion superan las 160 horas', () => {
+      const datosHorasExcesivas = {
+        proyectoComunitarioId: 5,
+        horasAsignadas: 200,
+      };
+
+      const resultado = esquemaAsignacionProyectoComunitarioActualizar.safeParse(datosHorasExcesivas);
+      expect(resultado.success).toBe(false);
+      if (!resultado.success) {
+        expect(resultado.error.issues[0].message).toContain('El número de horas no puede superar 160');
+      }
     });
   });
 

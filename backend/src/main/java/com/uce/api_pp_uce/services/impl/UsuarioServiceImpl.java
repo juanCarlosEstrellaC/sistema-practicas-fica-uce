@@ -72,7 +72,17 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional(readOnly = true)
     public Page<UsuarioDto> buscarConFiltros(String search, RolUsuario rol, Integer carreraId, Integer sinAsignacionEnPeriodoId, EstadoUsuario estado, Pageable pageable) {
-        return usuarioRepository.buscarConFiltros(search, rol, carreraId, sinAsignacionEnPeriodoId, estado, pageable).map(this::mapToDto);
+        Integer carreraFiltro = carreraId;
+        Usuario usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuarioAutenticado != null) {
+            RolUsuario rolUsuario = usuarioAutenticado.getRol();
+            if (rolUsuario == RolUsuario.DIRECTOR_CARRERA || rolUsuario == RolUsuario.COORDINADOR_PRACTICAS) {
+                if (usuarioAutenticado.getCarrera() != null) {
+                    carreraFiltro = usuarioAutenticado.getCarrera().getId();
+                }
+            }
+        }
+        return usuarioRepository.buscarConFiltros(search, rol, carreraFiltro, sinAsignacionEnPeriodoId, estado, pageable).map(this::mapToDto);
     }
 
     @Override
@@ -80,13 +90,24 @@ public class UsuarioServiceImpl implements UsuarioService {
     public UsuarioDto buscarPorId(Long id) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+        validarConsultaUsuario(id, usuario);
         return mapToDto(usuario);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TutorResumenDto> obtenerResumenTutores(Integer carreraId, String search, Long periodoId) {
-        List<Usuario> tutores = usuarioRepository.findTutoresParaResumen(carreraId, search);
+        Integer carreraFiltro = carreraId;
+        Usuario usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuarioAutenticado != null) {
+            RolUsuario rolUsuario = usuarioAutenticado.getRol();
+            if (rolUsuario == RolUsuario.DIRECTOR_CARRERA || rolUsuario == RolUsuario.COORDINADOR_PRACTICAS) {
+                if (usuarioAutenticado.getCarrera() != null) {
+                    carreraFiltro = usuarioAutenticado.getCarrera().getId();
+                }
+            }
+        }
+        List<Usuario> tutores = usuarioRepository.findTutoresParaResumen(carreraFiltro, search);
         if (tutores.isEmpty()) return List.of();
         
         List<Long> tutorIds = tutores.stream().map(Usuario::getId).toList();
@@ -496,6 +517,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public void cambiarContrasenia(Long id, CambiarContraseniaDto dto) {
+        validarPropiedadUsuario(id);
         validadorContraseniaNist.validar(dto.nuevaContrasenia());
 
         Usuario u = usuarioRepository.findById(id)
@@ -519,6 +541,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public boolean validarContrasenia(Long id, String contrasenia) {
+        validarPropiedadUsuario(id);
         Usuario u = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
         return codificadorContrasenia.matches(contrasenia, u.getClaveHash());
@@ -527,6 +550,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public void actualizarAvatar(Long id, String urlAvatar) {
+        validarPropiedadUsuario(id);
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
         String urlAnterior = usuario.getUrlAvatar();
@@ -535,6 +559,50 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         if (urlAnterior != null && !urlAnterior.trim().isEmpty() && !urlAnterior.equals(urlAvatar)) {
             archivoService.eliminarArchivo(urlAnterior);
+        }
+    }
+
+    @Override
+    @Transactional
+    public String subirAvatar(Long id, MultipartFile file) {
+        validarPropiedadUsuario(id);
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
+        String urlAvatar = archivoService.guardarAvatar(file, id.toString());
+        String urlAnterior = usuario.getUrlAvatar();
+        usuario.setUrlAvatar(urlAvatar);
+        usuarioRepository.save(usuario);
+
+        if (urlAnterior != null && !urlAnterior.trim().isEmpty() && !urlAnterior.equals(urlAvatar)) {
+            archivoService.eliminarArchivo(urlAnterior);
+        }
+        return urlAvatar;
+    }
+
+    private void validarPropiedadUsuario(Long id) {
+        Usuario usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuarioAutenticado != null && !usuarioAutenticado.getId().equals(id)
+                && usuarioAutenticado.getRol() != RolUsuario.SUBDECANO) {
+            throw new NegocioException("No tiene permiso para modificar la cuenta de otro usuario");
+        }
+    }
+
+    private void validarConsultaUsuario(Long id, Usuario usuarioConsultado) {
+        Usuario usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuarioAutenticado != null) {
+            RolUsuario rol = usuarioAutenticado.getRol();
+            Long usuarioId = usuarioAutenticado.getId();
+
+            if (rol == RolUsuario.ESTUDIANTE && !usuarioId.equals(id)) {
+                throw new NegocioException("No tiene permiso para consultar el perfil de otro usuario");
+            }
+
+            if ((rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS || rol == RolUsuario.TUTOR_ACADEMICO)
+                    && usuarioAutenticado.getCarrera() != null
+                    && usuarioConsultado.getCarrera() != null
+                    && !usuarioAutenticado.getCarrera().getId().equals(usuarioConsultado.getCarrera().getId())) {
+                throw new NegocioException("No tiene permiso para consultar información de usuarios de otra carrera");
+            }
         }
     }
 

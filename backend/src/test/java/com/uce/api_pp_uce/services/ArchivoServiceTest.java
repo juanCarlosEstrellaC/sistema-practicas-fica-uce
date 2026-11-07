@@ -97,7 +97,7 @@ class ArchivoServiceTest {
                 () -> archivoService.guardarAvatar(archivoPdf, "123")
         );
 
-        assertEquals("Solo se permiten imagenes (jpg, jpeg, png)", excepcion.getMessage());
+        assertEquals("Solo se permiten imagenes (jpg, jpeg, png, webp)", excepcion.getMessage());
     }
 
     @Test

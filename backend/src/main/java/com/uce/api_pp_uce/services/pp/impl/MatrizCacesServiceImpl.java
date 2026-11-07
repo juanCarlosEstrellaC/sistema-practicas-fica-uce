@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.services.pp.impl;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.MatrizCacesDto;
 import com.uce.api_pp_uce.entities.pp.AsignacionPractica;
 import com.uce.api_pp_uce.entities.Carrera;
@@ -14,6 +15,7 @@ import com.uce.api_pp_uce.repositories.pp.AsignacionPracticaRepository;
 import com.uce.api_pp_uce.repositories.pp.MatrizCacesRepository;
 import com.uce.api_pp_uce.services.ArchivoService;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.pp.MatrizCacesService;
 import org.springframework.core.io.Resource;
 import jakarta.persistence.EntityManager;
@@ -41,10 +43,22 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
     private final NotificacionService notificacionService;
     private final MatrizCacesExcelExportador matrizCacesExcelExportador;
     private final ArchivoService archivoService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
+
+    private void validarCarrera(Integer carreraId) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null && usuario.getRol() != RolUsuario.SUBDECANO) {
+            Integer miCarreraId = usuario.getCarrera() != null ? usuario.getCarrera().getId() : null;
+            if (miCarreraId != null && carreraId != null && !miCarreraId.equals(carreraId)) {
+                throw new NegocioException("No tiene permisos para acceder o modificar la Matriz CACES de otra carrera.");
+            }
+        }
+    }
 
     @Override
     @Transactional(readOnly = true)
     public Page<MatrizCacesDto> listarPorCarrera(Integer carreraId, Pageable pageable) {
+        validarCarrera(carreraId);
         return matrizCacesRepository.findByCarreraId(carreraId, pageable)
                 .map(this::mapToDto);
     }
@@ -64,6 +78,7 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
 
     @Override
     public MatrizCacesDto obtenerPorPeriodoYCarrera(Long periodoAcademicoId, Integer carreraId) {
+        validarCarrera(carreraId);
         return matrizCacesRepository.findByPeriodoAcademicoIdAndCarreraId(periodoAcademicoId, carreraId)
                 .map(this::mapToDto)
                 .orElse(null);
@@ -71,6 +86,7 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
 
     @Override
     public MatrizCacesDto crearOActualizar(Long periodoAcademicoId, Integer carreraId) {
+        validarCarrera(carreraId);
         MatrizCaces matriz = matrizCacesRepository.findByPeriodoAcademicoIdAndCarreraId(periodoAcademicoId, carreraId)
                 .orElseGet(() -> {
                     MatrizCaces m = new MatrizCaces();
@@ -102,6 +118,9 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
     @Override
     public MatrizCacesDto cambiarEstado(Long id, EstadoMatrizCaces nuevoEstado, String observacion) {
         MatrizCaces matriz = matrizCacesRepository.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Matriz CACES no encontrada con ID: " + id));
+        if (matriz.getCarrera() != null) {
+            validarCarrera(matriz.getCarrera().getId());
+        }
         if (matriz.getEstado() == EstadoMatrizCaces.FIRMADA_POR_SUBDECANO) {
             throw new NegocioException("La Matriz CACES ya ha sido oficializada y firmada por el Subdecanato; no se permiten modificaciones.");
         }
@@ -157,9 +176,12 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
     @Override
     @Transactional(readOnly = true)
     public MatrizCacesDto obtenerPorId(Long id) {
-        return matrizCacesRepository.findById(id)
-                .map(this::mapToDto)
+        MatrizCaces matriz = matrizCacesRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Matriz CACES no encontrada con ID: " + id));
+        if (matriz.getCarrera() != null) {
+            validarCarrera(matriz.getCarrera().getId());
+        }
+        return mapToDto(matriz);
     }
 
     @Override
@@ -167,6 +189,9 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
     public byte[] generarExcelMatrizCaces(Long id) {
         MatrizCaces matriz = matrizCacesRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Matriz CACES no encontrada con ID: " + id));
+        if (matriz.getCarrera() != null) {
+            validarCarrera(matriz.getCarrera().getId());
+        }
 
         // Si ya cuenta con un archivo oficial firmado en el ciclo jerárquico, se retorna dicho archivo
         // para preservar las firmas existentes y evitar regenerar una plantilla en blanco
@@ -199,9 +224,54 @@ public class MatrizCacesServiceImpl implements MatrizCacesService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ArchivoDescargaDto obtenerDescargaExcel(Long id) {
+        byte[] contenido = generarExcelMatrizCaces(id);
+        MatrizCacesDto matriz = obtenerPorId(id);
+
+        String nombreCarrera = (matriz != null && matriz.carreraNombre() != null && !matriz.carreraNombre().trim().isEmpty())
+                ? matriz.carreraNombre().trim()
+                : "Carrera";
+        String periodo = (matriz != null && matriz.periodoNombre() != null && !matriz.periodoNombre().trim().isEmpty())
+                ? matriz.periodoNombre().trim()
+                : "Periodo";
+
+        String ext = ".xlsx";
+        String contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        if (matriz != null && matriz.archivoFirmadoUrl() != null && !matriz.archivoFirmadoUrl().trim().isEmpty()) {
+            String url = matriz.archivoFirmadoUrl().toLowerCase();
+            if (url.endsWith(".pdf")) {
+                ext = ".pdf";
+                contentType = "application/pdf";
+            } else if (url.endsWith(".ods")) {
+                ext = ".ods";
+                contentType = "application/vnd.oasis.opendocument.spreadsheet";
+            }
+        }
+
+        String sufijoFirma = "";
+        if (matriz != null && matriz.estado() != null) {
+            if (matriz.estado() == EstadoMatrizCaces.FIRMADA_POR_DC) {
+                sufijoFirma = " - Firmada por DC";
+            } else if (matriz.estado() == EstadoMatrizCaces.ENVIADA_A_SUBDECANO) {
+                sufijoFirma = " - Firmada por CPP";
+            } else if (matriz.estado() == EstadoMatrizCaces.FIRMADA_POR_SUBDECANO) {
+                sufijoFirma = " - Oficializada";
+            }
+        }
+
+        String nombreDescarga = String.format("Matriz CACES - %s - %s%s%s", nombreCarrera, periodo, sufijoFirma, ext);
+        return new ArchivoDescargaDto(contenido, nombreDescarga, contentType);
+    }
+
+    @Override
     @Transactional
     public MatrizCacesDto subirArchivoFirmado(Long id, String url) {
         MatrizCaces matriz = matrizCacesRepository.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Matriz CACES no encontrada con ID: " + id));
+        if (matriz.getCarrera() != null) {
+            validarCarrera(matriz.getCarrera().getId());
+        }
         if (matriz.getEstado() == EstadoMatrizCaces.FIRMADA_POR_SUBDECANO) {
             throw new NegocioException("La Matriz CACES ya ha sido oficializada y firmada por el Subdecanato; no se permiten modificaciones.");
         }

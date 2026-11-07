@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.services.vcs;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaRevisionTutorDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsNuevoDto;
@@ -11,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface EvidenciaAsignacionVcsService {
+
+    EvidenciaVcsDto subirEvidencia(EvidenciaVcsNuevoDto dto);
 
     EvidenciaVcsDto subirEvidencia(EvidenciaVcsNuevoDto dto, Usuario usuarioAutenticado);
 
@@ -30,4 +33,8 @@ public interface EvidenciaAsignacionVcsService {
     EvidenciaVcsDto revisarEvidenciaTutor(Long id, EvidenciaRevisionTutorDto dto);
 
     void eliminarEvidencia(Long id);
+
+    ArchivoDescargaDto obtenerEvidenciaDescarga(Long id);
+
+    ArchivoDescargaDto obtenerEvidenciaDescarga(Long id, Usuario usuarioAutenticado);
 }

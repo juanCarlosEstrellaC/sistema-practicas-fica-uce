@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.controllers.pp;
 
+import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.dtos.pp.MetricasDashboardDto;
 import com.uce.api_pp_uce.excepciones.ManejadorExcepcionesGlobal;
 import com.uce.api_pp_uce.services.pp.MetricasService;
@@ -14,6 +15,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -70,7 +73,7 @@ class MetricasControllerTest {
     @Test
     @DisplayName("GET /metricas/carrera/{carreraId} - Debe retornar metricas por carrera exitosamente")
     void obtenerMetricasPorCarrera_Exitoso() throws Exception {
-        when(metricasService.obtenerMetricasPorCarrera(5, 1L, 10L)).thenReturn(metricasDtoMock);
+        when(metricasService.obtenerMetricasPorCarrera(eq(5), eq(1L), eq(10L))).thenReturn(metricasDtoMock);
 
         mockMvc.perform(get("/metricas/carrera/5")
                         .param("periodoId", "1")

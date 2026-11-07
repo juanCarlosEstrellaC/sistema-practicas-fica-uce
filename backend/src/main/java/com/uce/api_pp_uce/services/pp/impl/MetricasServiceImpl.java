@@ -1,12 +1,15 @@
 package com.uce.api_pp_uce.services.pp.impl;
 
 import com.uce.api_pp_uce.dtos.pp.MetricasDashboardDto;
+import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.enums.pp.EstadoAsignacion;
 import com.uce.api_pp_uce.enums.pp.EstadoConvenio;
 import com.uce.api_pp_uce.enums.RolUsuario;
+import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
 import com.uce.api_pp_uce.repositories.pp.AsignacionPracticaRepository;
 import com.uce.api_pp_uce.repositories.pp.ConvenioRepository;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.pp.MetricasService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,7 @@ public class MetricasServiceImpl implements MetricasService {
     private final AsignacionPracticaRepository asignacionPracticaRepository;
     private final ConvenioRepository convenioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,6 +53,21 @@ public class MetricasServiceImpl implements MetricasService {
     @Override
     @Transactional(readOnly = true)
     public MetricasDashboardDto obtenerMetricasPorCarrera(Integer carreraId, Long periodoId, Long tutorId) {
+        return obtenerMetricasPorCarrera(carreraId, periodoId, tutorId, usuarioAutenticadoService.obtenerUsuarioLogueado());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MetricasDashboardDto obtenerMetricasPorCarrera(Integer carreraId, Long periodoId, Long tutorId, Usuario usuarioAutenticado) {
+        if (usuarioAutenticado == null) {
+            usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        }
+        if (usuarioAutenticado != null && usuarioAutenticado.getRol() != RolUsuario.SUBDECANO) {
+            Integer miCarreraId = usuarioAutenticado.getCarrera() != null ? usuarioAutenticado.getCarrera().getId() : null;
+            if (miCarreraId != null && !miCarreraId.equals(carreraId)) {
+                throw new NegocioException("No tiene permiso para consultar métricas de otra carrera");
+            }
+        }
         long totalEstudiantes = usuarioRepository.countByRolAndCarreraId(RolUsuario.ESTUDIANTE, carreraId);
         long estudiantesAsignados = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorId, null);
         long estudiantesEnCurso = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorId, EstadoAsignacion.EN_CURSO);

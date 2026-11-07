@@ -7,6 +7,7 @@ import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
 import com.uce.api_pp_uce.entities.Carrera;
 import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.entities.vcs.ProyectoComunitario;
+import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.enums.TipoNotificacion;
 import com.uce.api_pp_uce.enums.vcs.EstadoProyecto; 
 import com.uce.api_pp_uce.excepciones.NegocioException;
@@ -18,12 +19,14 @@ import com.uce.api_pp_uce.repositories.CarreraRepository;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
 import com.uce.api_pp_uce.repositories.vcs.ProyectoComunitarioRepository;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.ProyectoComunitarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +43,31 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
     private final AsignacionProyectoComunitarioRepository asignacionProyectoComunitarioRepository;
     private final ProyectoComunitarioMapeador proyectoComunitarioMapeador;
     private final NotificacionService notificacionService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
+
+    private void validarAccesoProyecto(ProyectoComunitario entidad) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario == null) {
+            return;
+        }
+        RolUsuario rol = usuario.getRol();
+        if (rol == RolUsuario.SUBDECANO) {
+            return;
+        }
+        if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
+            Integer miCarreraId = usuario.getCarrera() != null ? usuario.getCarrera().getId() : null;
+            Integer carreraProyecto = entidad.getCarrera() != null ? entidad.getCarrera().getId() : null;
+            if (miCarreraId != null && carreraProyecto != null && !miCarreraId.equals(carreraProyecto)) {
+                throw new AccessDeniedException("No tiene permisos para acceder a proyectos de otra carrera.");
+            }
+        } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+            Long miId = usuario.getId();
+            Long tutorProyectoId = entidad.getTutorAcademico() != null ? entidad.getTutorAcademico().getId() : null;
+            if (tutorProyectoId != null && !miId.equals(tutorProyectoId)) {
+                throw new AccessDeniedException("No tiene permisos para acceder a proyectos asignados a otro tutor.");
+            }
+        }
+    }
 
     private ProyectoComunitarioDto mapearConEstadoInicio(ProyectoComunitario entidad) {
         boolean tieneAsignaciones = asignacionProyectoComunitarioRepository.existsByProyectoComunitarioId(entidad.getId());
@@ -70,8 +98,25 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
     @Transactional(readOnly = true)
     public Page<ProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId, EstadoProyecto estado, Pageable pageable) {
         String busquedaLimpia = (busqueda != null && !busqueda.trim().isEmpty()) ? busqueda.trim() : null;
+        Integer carreraFiltro = carreraId;
+        Long tutorFiltro = tutorId;
+
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null) {
+            RolUsuario rol = usuario.getRol();
+            if ((rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS)
+                    && usuario.getCarrera() != null) {
+                carreraFiltro = usuario.getCarrera().getId();
+            } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+                tutorFiltro = usuario.getId();
+                if (usuario.getCarrera() != null) {
+                    carreraFiltro = usuario.getCarrera().getId();
+                }
+            }
+        }
+
         Pageable pageableMapeado = mapearPageable(pageable);
-        return proyectoComunitarioRepository.buscarConFiltros(busquedaLimpia, carreraId, tutorId, estado, pageableMapeado)
+        return proyectoComunitarioRepository.buscarConFiltros(busquedaLimpia, carreraFiltro, tutorFiltro, estado, pageableMapeado)
                 .map(this::mapearConEstadoInicio);
     }
 
@@ -80,6 +125,7 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
     public ProyectoComunitarioDto buscarPorId(Long id) {
         ProyectoComunitario entidad = proyectoComunitarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proyecto comunitario no encontrado con ID: " + id));
+        validarAccesoProyecto(entidad);
         return mapearConEstadoInicio(entidad);
     }
 

@@ -6,8 +6,6 @@ import com.uce.api_pp_uce.enums.vcs.EstadoAsignacionVcs;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,7 +29,6 @@ import com.uce.api_pp_uce.enums.vcs.FaseActualAsignacion;
 @Table(name = "asignaciones_proyectos_comunitarios")
 @SQLDelete(sql = "UPDATE asignaciones_proyectos_comunitarios SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class AsignacionProyectoComunitario {
@@ -50,7 +47,6 @@ public class AsignacionProyectoComunitario {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "periodo_id", nullable = false)
-    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private PeriodoAcademico periodoAcademico;
 
     @Column(name = "horas_asignadas", nullable = false)

@@ -27,10 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.uce.api_pp_uce.dtos.ActualizarPerfilDto;
 import com.uce.api_pp_uce.dtos.auth.CambiarContraseniaDto;
-import com.uce.api_pp_uce.services.ArchivoService;
-import com.uce.api_pp_uce.excepciones.NegocioException;
-import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
 import java.util.Map;
 
@@ -42,7 +38,6 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
-    private final ArchivoService archivoService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
@@ -73,7 +68,6 @@ public class UsuarioController {
         List<TutorResumenDto> tutores = usuarioService.obtenerResumenTutores(carreraId, search, periodoId);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Resumen de tutores obtenido", tutores));
     }
-
 
     @PostMapping
     @PreAuthorize("hasRole('SUBDECANO')")
@@ -106,9 +100,7 @@ public class UsuarioController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RespuestaApi<Void>> cambiarContrasenia(
             @PathVariable Long id,
-            @Valid @RequestBody CambiarContraseniaDto dto,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadUsuario(id, detallesUsuario);
+            @Valid @RequestBody CambiarContraseniaDto dto) {
         usuarioService.cambiarContrasenia(id, dto);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Contraseña actualizada exitosamente", null));
     }
@@ -130,9 +122,7 @@ public class UsuarioController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RespuestaApi<Boolean>> validarContrasenia(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadUsuario(id, detallesUsuario);
+            @RequestBody Map<String, String> body) {
         boolean valida = usuarioService.validarContrasenia(id, body.get("contrasenia"));
         if (!valida) {
             return ResponseEntity.badRequest().body(new RespuestaApi<>(false, "La contraseña actual es incorrecta", false));
@@ -144,11 +134,8 @@ public class UsuarioController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RespuestaApi<String>> subirAvatar(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadUsuario(id, detallesUsuario);
-        String urlAvatar = archivoService.guardarAvatar(file, id.toString());
-        usuarioService.actualizarAvatar(id, urlAvatar);
+            @RequestParam("file") MultipartFile file) {
+        String urlAvatar = usuarioService.subirAvatar(id, file);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Avatar actualizado", urlAvatar));
     }
 
@@ -156,9 +143,7 @@ public class UsuarioController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RespuestaApi<UsuarioDto>> actualizarPerfil(
             @PathVariable Long id,
-            @Valid @RequestBody ActualizarPerfilDto dto,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadUsuario(id, detallesUsuario);
+            @Valid @RequestBody ActualizarPerfilDto dto) {
         return ResponseEntity.ok(new RespuestaApi<>(true, "Perfil actualizado exitosamente", usuarioService.actualizarPerfil(id, dto)));
     }
 
@@ -166,16 +151,7 @@ public class UsuarioController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RespuestaApi<UsuarioDto>> actualizarPerfilPut(
             @PathVariable Long id,
-            @Valid @RequestBody ActualizarPerfilDto dto,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        validarPropiedadUsuario(id, detallesUsuario);
+            @Valid @RequestBody ActualizarPerfilDto dto) {
         return ResponseEntity.ok(new RespuestaApi<>(true, "Perfil actualizado exitosamente", usuarioService.actualizarPerfil(id, dto)));
-    }
-
-    private void validarPropiedadUsuario(Long id, DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && !detallesUsuario.getUsuario().getId().equals(id)
-                && detallesUsuario.getUsuario().getRol() != RolUsuario.SUBDECANO) {
-            throw new NegocioException("No tienes permiso para modificar la cuenta de otro usuario");
-        }
     }
 }

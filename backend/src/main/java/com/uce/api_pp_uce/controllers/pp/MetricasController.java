@@ -27,7 +27,11 @@ public class MetricasController {
 
     @GetMapping("/carrera/{carreraId}")
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
-    public ResponseEntity<RespuestaApi<MetricasDashboardDto>> obtenerMetricasPorCarrera(@PathVariable Integer carreraId, @RequestParam(required = false) Long periodoId, @RequestParam(required = false) Long tutorId) {
-        return ResponseEntity.ok(new RespuestaApi<>(true, "Métricas por carrera obtenidas exitosamente", metricasService.obtenerMetricasPorCarrera(carreraId, periodoId, tutorId)));
+    public ResponseEntity<RespuestaApi<MetricasDashboardDto>> obtenerMetricasPorCarrera(
+            @PathVariable Integer carreraId,
+            @RequestParam(required = false) Long periodoId,
+            @RequestParam(required = false) Long tutorId) {
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Métricas por carrera obtenidas exitosamente",
+                metricasService.obtenerMetricasPorCarrera(carreraId, periodoId, tutorId)));
     }
 }

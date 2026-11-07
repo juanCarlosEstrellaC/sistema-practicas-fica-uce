@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.AprobarHorasSubdecanatoDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioDto;
@@ -47,7 +48,9 @@ import com.uce.api_pp_uce.repositories.vcs.AsignacionProyectoComunitarioReposito
 import com.uce.api_pp_uce.repositories.vcs.ProyectoComunitarioRepository;
 import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
 import com.uce.api_pp_uce.repositories.vcs.ProcesoVinculacionRepository;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.AsignacionProyectoComunitarioService;
+import org.springframework.security.access.AccessDeniedException;
 
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -80,23 +83,105 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     private final AsignacionProyectoComunitarioMapeador asignacionProyectoComunitarioMapeador;
     private final ProyectoComunitarioMapeador proyectoComunitarioMapeador;
     private final EvidenciaAsignacionVcsRepository evidenciaAsignacionVcsRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Value("${app.almacenamiento.ruta-base:archivos_subidos}")
     private String rutaBaseAlmacenamiento = "archivos_subidos";
+
+    private void validarAccesoAsignacion(AsignacionProyectoComunitario entidad) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario == null) {
+            return;
+        }
+        RolUsuario rol = usuario.getRol();
+        if (rol == RolUsuario.SUBDECANO) {
+            return;
+        }
+        if (rol == RolUsuario.ESTUDIANTE) {
+            Long estudianteId = (entidad.getProcesoVinculacion() != null && entidad.getProcesoVinculacion().getEstudiante() != null)
+                    ? entidad.getProcesoVinculacion().getEstudiante().getId() : null;
+            if (!usuario.getId().equals(estudianteId)) {
+                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación.");
+            }
+        } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+            Long tutorId = (entidad.getProyectoComunitario() != null && entidad.getProyectoComunitario().getTutorAcademico() != null)
+                    ? entidad.getProyectoComunitario().getTutorAcademico().getId() : null;
+            if (tutorId == null || !usuario.getId().equals(tutorId)) {
+                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación.");
+            }
+        } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
+            Integer miCarreraId = usuario.getCarrera() != null ? usuario.getCarrera().getId() : null;
+            Integer carreraAsignacion = (entidad.getProcesoVinculacion() != null && entidad.getProcesoVinculacion().getCarrera() != null)
+                    ? entidad.getProcesoVinculacion().getCarrera().getId()
+                    : ((entidad.getProyectoComunitario() != null && entidad.getProyectoComunitario().getCarrera() != null)
+                            ? entidad.getProyectoComunitario().getCarrera().getId() : null);
+            if (miCarreraId != null && carreraAsignacion != null && !miCarreraId.equals(carreraAsignacion)) {
+                throw new AccessDeniedException("No tiene permisos para acceder a asignaciones de otra carrera.");
+            }
+        }
+    }
+
+    private void validarAccesoCertificado(AsignacionProyectoComunitario asignacion) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario == null) {
+            return;
+        }
+        RolUsuario rol = usuario.getRol();
+        if (rol == RolUsuario.SUBDECANO) {
+            return;
+        }
+        if (rol == RolUsuario.ESTUDIANTE) {
+            Long estudianteId = (asignacion.getProcesoVinculacion() != null && asignacion.getProcesoVinculacion().getEstudiante() != null)
+                    ? asignacion.getProcesoVinculacion().getEstudiante().getId() : null;
+            if (!usuario.getId().equals(estudianteId)) {
+                throw new AccessDeniedException("No tienes permiso para ver el certificado de otro estudiante.");
+            }
+        } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+            Long tutorId = (asignacion.getProyectoComunitario() != null && asignacion.getProyectoComunitario().getTutorAcademico() != null)
+                    ? asignacion.getProyectoComunitario().getTutorAcademico().getId() : null;
+            if (tutorId == null || !usuario.getId().equals(tutorId)) {
+                throw new AccessDeniedException("No tienes permiso para ver el certificado de una asignación que no está a su cargo.");
+            }
+        } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
+            Integer miCarreraId = usuario.getCarrera() != null ? usuario.getCarrera().getId() : null;
+            Integer carreraAsignacion = (asignacion.getProcesoVinculacion() != null && asignacion.getProcesoVinculacion().getCarrera() != null)
+                    ? asignacion.getProcesoVinculacion().getCarrera().getId()
+                    : ((asignacion.getProyectoComunitario() != null && asignacion.getProyectoComunitario().getCarrera() != null)
+                            ? asignacion.getProyectoComunitario().getCarrera().getId() : null);
+            if (miCarreraId != null && carreraAsignacion != null && !miCarreraId.equals(carreraAsignacion)) {
+                throw new AccessDeniedException("No tienes permiso para ver certificados de otra carrera.");
+            }
+        }
+    }
 
     @Transactional(readOnly = true)
     @Override
     public AsignacionProyectoComunitarioDto buscarPorId(Long id) {
         AsignacionProyectoComunitario entidad = asignacionProyectoComunitarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación no encontrada con ID: " + id));
+        validarAccesoAsignacion(entidad);
         return asignacionProyectoComunitarioMapeador.aDto(entidad);
+    }
+
+    private Integer resolverCarreraFiltro(Integer carreraId) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null && usuario.getCarrera() != null) {
+            RolUsuario rol = usuario.getRol();
+            if (rol == RolUsuario.COORDINADOR_PRACTICAS
+                    || rol == RolUsuario.DIRECTOR_CARRERA
+                    || rol == RolUsuario.TUTOR_ACADEMICO) {
+                return usuario.getCarrera().getId();
+            }
+        }
+        return carreraId;
     }
 
     @Transactional(readOnly = true)
     @Override
     public List<EstudianteResumenVcsDto> listarEstudiantesDisponibles(Integer carreraId, Long periodoId, String busqueda) {
+        Integer carreraFiltro = resolverCarreraFiltro(carreraId);
         String busquedaLimpia = (busqueda != null && !busqueda.trim().isEmpty()) ? busqueda.trim() : null;
-        List<Usuario> estudiantes = usuarioRepository.findEstudiantesDisponiblesParaVcs(carreraId, periodoId, busquedaLimpia);
+        List<Usuario> estudiantes = usuarioRepository.findEstudiantesDisponiblesParaVcs(carreraFiltro, periodoId, busquedaLimpia);
 
         return estudiantes.stream()
                 .map(estudiante -> {
@@ -125,11 +210,11 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     @Override
     public List<ProyectoComunitarioResumenDto> listarProyectosDisponibles(Integer carreraId, Long periodoId,
             String busqueda) {
-
+        Integer carreraFiltro = resolverCarreraFiltro(carreraId);
         // *Actualmente no filtra por periodo, se toma en cuenta como proyectos sin
         // periodo
         return proyectoComunitarioRepository
-                .findByEstadoAndCarreraId(EstadoProyecto.ACTIVO, carreraId, busqueda)
+                .findByEstadoAndCarreraId(EstadoProyecto.ACTIVO, carreraFiltro, busqueda)
                 .stream()
                 .map(proyectoComunitarioMapeador::aDtoResumen)
                 .toList();
@@ -138,11 +223,12 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     @Transactional(readOnly = true)
     @Override
     public List<TutorResumenVcsDto> listarTutoresDisponibles(Integer carreraId, Long periodoId, String busqueda, Long proyectoId, String conAsignaciones) {
-        List<Usuario> tutores = usuarioRepository.findTutoresParaAsignacion(carreraId, busqueda);
+        Integer carreraFiltro = resolverCarreraFiltro(carreraId);
+        List<Usuario> tutores = usuarioRepository.findTutoresParaAsignacion(carreraFiltro, busqueda);
         
         return tutores.stream()
                 .map(tutor -> {
-                    Integer carreraTutor = carreraId != null ? carreraId : (tutor.getCarrera() != null ? tutor.getCarrera().getId() : null);
+                    Integer carreraTutor = carreraFiltro != null ? carreraFiltro : (tutor.getCarrera() != null ? tutor.getCarrera().getId() : null);
                     List<ProyectoComunitario> proyectosTutor = proyectoComunitarioRepository
                             .findByTutorIdAndCarreraId(tutor.getId(), carreraTutor);
                     
@@ -207,9 +293,30 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     public Page<AsignacionProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId,
             Long estudianteId, Long proyectoId, EstadoAsignacionVcs estado, FaseActualAsignacion faseActual, Long periodoId, Pageable pageable) {
         String busquedaLimpia = (busqueda != null && !busqueda.trim().isEmpty()) ? busqueda.trim() : null;
+
+        Long estudianteFiltro = estudianteId;
+        Long tutorFiltro = tutorId;
+        Integer carreraFiltro = carreraId;
+
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null) {
+            RolUsuario rol = usuario.getRol();
+            if (rol == RolUsuario.ESTUDIANTE) {
+                estudianteFiltro = usuario.getId();
+            } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+                tutorFiltro = usuario.getId();
+                if (usuario.getCarrera() != null) {
+                    carreraFiltro = usuario.getCarrera().getId();
+                }
+            } else if ((rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS)
+                    && usuario.getCarrera() != null) {
+                carreraFiltro = usuario.getCarrera().getId();
+            }
+        }
+
         Pageable pageableMapeado = mapearPageable(pageable);
         return asignacionProyectoComunitarioRepository
-                .buscarConFiltros(busquedaLimpia, carreraId, tutorId, estudianteId, proyectoId, estado, faseActual, periodoId, pageableMapeado)
+                .buscarConFiltros(busquedaLimpia, carreraFiltro, tutorFiltro, estudianteFiltro, proyectoId, estado, faseActual, periodoId, pageableMapeado)
                 .map(asignacionProyectoComunitarioMapeador::aDto);
     }
 
@@ -534,6 +641,15 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         AsignacionProyectoComunitario asignacion = asignacionProyectoComunitarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación no encontrada con ID: " + id));
 
+        Usuario usuarioActual = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuarioActual != null && usuarioActual.getRol() == RolUsuario.TUTOR_ACADEMICO) {
+            Long tutorId = (asignacion.getProyectoComunitario() != null && asignacion.getProyectoComunitario().getTutorAcademico() != null)
+                    ? asignacion.getProyectoComunitario().getTutorAcademico().getId() : null;
+            if (tutorId == null || !usuarioActual.getId().equals(tutorId)) {
+                throw new AccessDeniedException("No tienes permiso para enviar a subdecanato una asignación que no está a su cargo.");
+            }
+        }
+
         if (asignacion.getEstado() == EstadoAsignacionVcs.APROBADO) {
             throw new NegocioException("Las horas de esta asignación ya han sido validadas y el certificado ya fue emitido.");
         }
@@ -677,6 +793,10 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     @Transactional(readOnly = true)
     @Override
     public List<AsignacionProyectoComunitarioDto> listarPorEstudiante(Long estudianteId) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null && usuario.getRol() == RolUsuario.ESTUDIANTE && !usuario.getId().equals(estudianteId)) {
+            throw new AccessDeniedException("No tienes permiso para consultar asignaciones de otro estudiante.");
+        }
         return asignacionProyectoComunitarioRepository.findByEstudianteId(estudianteId)
                 .stream()
                 .map(asignacionProyectoComunitarioMapeador::aDto)
@@ -686,6 +806,10 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     @Transactional(readOnly = true)
     @Override
     public List<AsignacionProyectoComunitarioDto> listarPorTutor(Long tutorId) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null && usuario.getRol() == RolUsuario.TUTOR_ACADEMICO && !usuario.getId().equals(tutorId)) {
+            throw new AccessDeniedException("No tienes permiso para consultar asignaciones de otro tutor.");
+        }
         return asignacionProyectoComunitarioRepository.findByTutorId(tutorId)
                 .stream()
                 .map(asignacionProyectoComunitarioMapeador::aDto)
@@ -697,6 +821,7 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     public byte[] vistaPreviaCertificadoHoras(Long id, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo) {
         AsignacionProyectoComunitario asignacion = asignacionProyectoComunitarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación no encontrada con ID: " + id));
+        validarAccesoCertificado(asignacion);
 
         // 1. Si existe un certificado firmado físicamente subido por Subdecanato, retornar dicho PDF firmado
         String urlCertificado = asignacion.getUrlCertificado();
@@ -776,6 +901,27 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         }
         return ("Certificado_VCS_" + nombreEstudiante + "_" + nombreCarrera)
                 .replaceAll("[^a-zA-Z0-9_.-]", "_") + ".pdf";
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArchivoDescargaDto obtenerDescargaCertificadoHoras(Long id, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo) {
+        return obtenerDescargaCertificadoHoras(id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArchivoDescargaDto obtenerDescargaCertificadoHoras(Long id, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo, Usuario subdecanoAutenticado) {
+        Usuario subdecano = subdecanoAutenticado != null ? subdecanoAutenticado : usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (subdecano != null && subdecano.getRol() == RolUsuario.SUBDECANO) {
+            if (subdecanoNombre == null || subdecanoNombre.isBlank()) subdecanoNombre = subdecano.getNombreCompleto();
+            if (subdecanoCedula == null || subdecanoCedula.isBlank()) subdecanoCedula = subdecano.getIdentificacion();
+            if (subdecanoTelefono == null || subdecanoTelefono.isBlank()) subdecanoTelefono = subdecano.getTelefono();
+            if (subdecanoCorreo == null || subdecanoCorreo.isBlank()) subdecanoCorreo = subdecano.getCorreo();
+        }
+        byte[] bytesPdf = vistaPreviaCertificadoHoras(id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
+        String nombreArchivo = obtenerNombreArchivoCertificado(id);
+        return new ArchivoDescargaDto(bytesPdf, nombreArchivo, "application/pdf");
     }
 
     @Transactional

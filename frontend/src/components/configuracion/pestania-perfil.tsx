@@ -131,7 +131,7 @@ export function PestaniaPerfil({ usuario: usuarioProp }: PestaniaPerfilProps) {
               <p className="text-xs text-muted-foreground">{usuario.correo}</p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Formatos soportados: JPG, PNG o WEBP. Tamaño máximo recomendado: 5 MB.
+              Formatos admitidos: JPG, PNG o WebP (hasta 5 MB y resolucion maxima de 4096×4096 px).
             </p>
             <div className="pt-1">
               <input

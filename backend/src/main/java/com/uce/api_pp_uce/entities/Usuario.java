@@ -18,9 +18,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.NotAudited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDateTime;
 
@@ -28,7 +25,6 @@ import java.time.LocalDateTime;
 @Table(name = "usuarios")
 @SQLDelete(sql = "UPDATE usuarios SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class Usuario {
@@ -38,14 +34,12 @@ public class Usuario {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "carrera_id")
-    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private Carrera carrera;
 
     @Column(nullable = false, unique = true)
     private String correo;
 
     @Column(name = "clave_hash", nullable = false)
-    @NotAudited
     private String claveHash;
 
     @Column(nullable = false)
@@ -82,7 +76,6 @@ public class Usuario {
     private boolean borrado = false;
 
     @Column(name = "version_token")
-    @NotAudited
     private Long versionToken = 0L;
 
     public String getNombreCompleto() {

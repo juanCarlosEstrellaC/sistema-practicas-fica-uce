@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.services.vcs.impl;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaRevisionTutorDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsNuevoDto;
@@ -19,11 +20,17 @@ import com.uce.api_pp_uce.repositories.vcs.EvidenciaAsignacionVcsRepository;
 import com.uce.api_pp_uce.services.NotificacionService;
 import com.uce.api_pp_uce.services.vcs.EvidenciaAsignacionVcsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -33,10 +40,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcsService {
 
+    @Value("${app.almacenamiento.ruta-base:archivos_subidos}")
+    private String rutaBaseAlmacenamiento;
+
     private final EvidenciaAsignacionVcsRepository evidenciaAsignacionVcsRepository;
     private final AsignacionProyectoComunitarioRepository asignacionProyectoComunitarioRepository;
     private final NotificacionService notificacionService;
     private final EvidenciaAsignacionVcsMapeador evidenciaAsignacionVcsMapeador;
+    private final com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
 
     private static final Set<RolUsuario> ROLES_ADMINISTRATIVOS = Set.of(
             RolUsuario.SUBDECANO,
@@ -46,7 +57,16 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
 
     @Transactional
     @Override
+    public EvidenciaVcsDto subirEvidencia(EvidenciaVcsNuevoDto dto) {
+        return subirEvidencia(dto, usuarioAutenticadoService.obtenerUsuarioLogueado());
+    }
+
+    @Transactional
+    @Override
     public EvidenciaVcsDto subirEvidencia(EvidenciaVcsNuevoDto dto, Usuario usuarioAutenticado) {
+        if (usuarioAutenticado == null) {
+            usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        }
         AsignacionProyectoComunitario asignacion = asignacionProyectoComunitarioRepository.findById(dto.asignacionId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación no encontrada con ID: " + dto.asignacionId()));
 
@@ -113,7 +133,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
             );
         }
 
-        return evidenciaAsignacionVcsMapeador.aDto(evidenciaGuardada);
+        return mapearADto(evidenciaGuardada);
     }
 
     @Transactional(readOnly = true)
@@ -121,7 +141,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
     public EvidenciaVcsDto buscarPorId(Long id) {
         EvidenciaAsignacionVcs evidencia = evidenciaAsignacionVcsRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Evidencia no encontrada con ID: " + id));
-        return evidenciaAsignacionVcsMapeador.aDto(evidencia);
+        return mapearADto(evidencia);
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +156,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
         String busquedaLimpia = (busqueda != null && !busqueda.trim().isEmpty()) ? busqueda.trim() : null;
         return evidenciaAsignacionVcsRepository
                 .buscarConFiltros(busquedaLimpia, asignacionId, estudianteId, tutorId, estadoTutor, pageable)
-                .map(evidenciaAsignacionVcsMapeador::aDto);
+                .map(this::mapearADto);
     }
 
     @Transactional(readOnly = true)
@@ -144,7 +164,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
     public List<EvidenciaVcsDto> listarPorAsignacion(Long asignacionId) {
         return evidenciaAsignacionVcsRepository.findByAsignacionIdOrderByFechaSubidaDesc(asignacionId)
                 .stream()
-                .map(evidenciaAsignacionVcsMapeador::aDto)
+                .map(this::mapearADto)
                 .toList();
     }
 
@@ -192,7 +212,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
                 "/dashboard/vinculacion/mi-proyecto?asignacionId=" + (asignacion != null ? asignacion.getId() : "")
         );
 
-        return evidenciaAsignacionVcsMapeador.aDto(evidenciaActualizada);
+        return mapearADto(evidenciaActualizada);
     }
 
     @Transactional
@@ -206,5 +226,118 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
         }
 
         evidenciaAsignacionVcsRepository.delete(evidencia);
+    }
+
+    private EvidenciaVcsDto mapearADto(EvidenciaAsignacionVcs e) {
+        if (e == null) {
+            return null;
+        }
+        EvidenciaVcsDto dto = evidenciaAsignacionVcsMapeador.aDto(e);
+        if (e.getId() != null) {
+            return new EvidenciaVcsDto(
+                    dto.id(),
+                    dto.asignacionId(),
+                    dto.estudianteId(),
+                    dto.nombreCompletoEstudiante(),
+                    dto.identificacionEstudiante(),
+                    dto.proyectoId(),
+                    dto.nombreProyecto(),
+                    dto.tipoDocumento(),
+                    dto.nombreArchivo(),
+                    "/evidencias-vcs/" + e.getId() + "/preview",
+                    dto.horasReportadas(),
+                    dto.estadoTutor(),
+                    dto.observacionesTutor(),
+                    dto.fechaSubida(),
+                    dto.fechaRevisionTutor()
+            );
+        }
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public ArchivoDescargaDto obtenerEvidenciaDescarga(Long id) {
+        return obtenerEvidenciaDescarga(id, usuarioAutenticadoService.obtenerUsuarioLogueado());
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public ArchivoDescargaDto obtenerEvidenciaDescarga(Long id, Usuario usuarioAutenticado) {
+        if (usuarioAutenticado == null) {
+            usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        }
+        EvidenciaAsignacionVcs evidencia = evidenciaAsignacionVcsRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Evidencia no encontrada con ID: " + id));
+
+        if (usuarioAutenticado != null) {
+            RolUsuario rol = usuarioAutenticado.getRol();
+            Long miId = usuarioAutenticado.getId();
+
+            if (rol == RolUsuario.ESTUDIANTE) {
+                Long estudianteId = evidencia.getEstudiante() != null ? evidencia.getEstudiante().getId() : null;
+                if (!miId.equals(estudianteId)) {
+                    throw new AccessDeniedException("No tiene permisos para acceder a la evidencia de otro estudiante.");
+                }
+            } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+                Long tutorId = (evidencia.getAsignacion() != null
+                        && evidencia.getAsignacion().getProyectoComunitario() != null
+                        && evidencia.getAsignacion().getProyectoComunitario().getTutorAcademico() != null)
+                        ? evidencia.getAsignacion().getProyectoComunitario().getTutorAcademico().getId()
+                        : null;
+                if (tutorId == null || !miId.equals(tutorId)) {
+                    throw new AccessDeniedException("No tiene permisos para acceder a esta evidencia (no es el tutor asignado).");
+                }
+            } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
+                Integer miCarreraId = usuarioAutenticado.getCarrera() != null ? usuarioAutenticado.getCarrera().getId() : null;
+                Integer carreraDoc = (evidencia.getAsignacion() != null
+                        && evidencia.getAsignacion().getProyectoComunitario() != null
+                        && evidencia.getAsignacion().getProyectoComunitario().getCarrera() != null)
+                        ? evidencia.getAsignacion().getProyectoComunitario().getCarrera().getId()
+                        : null;
+                if (miCarreraId != null && carreraDoc != null && !miCarreraId.equals(carreraDoc)) {
+                    throw new AccessDeniedException("No tiene permisos para acceder a evidencias de estudiantes de otra carrera.");
+                }
+            }
+        }
+
+        String rutaLimpia = evidencia.getUrlArchivo() != null ? evidencia.getUrlArchivo().trim() : "";
+        if (rutaLimpia.startsWith("/")) {
+            rutaLimpia = rutaLimpia.substring(1);
+        }
+        if (rutaLimpia.startsWith("archivos_subidos/")) {
+            rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
+        }
+
+        Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
+                .toAbsolutePath().normalize();
+        Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
+
+        if (!filePath.startsWith(carpetaBase)) {
+            throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
+        }
+
+        if (!Files.exists(filePath)) {
+            Path posible = carpetaBase.resolve("vinculacion")
+                    .resolve(Paths.get(rutaLimpia).getFileName()).normalize().toAbsolutePath();
+            if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
+                filePath = posible;
+            } else {
+                throw new RecursoNoEncontradoException("El archivo físico de la evidencia no existe en el servidor: " + filePath.getFileName());
+            }
+        }
+
+        byte[] contenido;
+        try {
+            contenido = Files.readAllBytes(filePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Error al leer el archivo de la evidencia del disco", e);
+        }
+
+        String nombreDescarga = evidencia.getNombreArchivo() != null && !evidencia.getNombreArchivo().isBlank()
+                ? evidencia.getNombreArchivo()
+                : filePath.getFileName().toString();
+
+        return new ArchivoDescargaDto(contenido, nombreDescarga, "application/pdf");
     }
 }

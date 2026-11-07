@@ -64,6 +64,9 @@ class DocumentoPortafolioServiceTest {
     @Mock
     private NotificacionService notificacionService;
 
+    @Mock
+    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+
     @Spy
     private DocumentoPortafolioMapeador documentoPortafolioMapeador = Mappers.getMapper(DocumentoPortafolioMapeador.class);
 

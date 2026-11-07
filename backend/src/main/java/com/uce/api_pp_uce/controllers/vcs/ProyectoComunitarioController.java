@@ -30,15 +30,15 @@ public class ProyectoComunitarioController {
 
     private final ProyectoComunitarioService proyectoComunitarioService;
 
-    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     public ResponseEntity<RespuestaApi<ProyectoComunitarioDto>> buscarPorId(@PathVariable Long id) {
         ProyectoComunitarioDto proyecto = proyectoComunitarioService.buscarPorId(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyecto comunitario obtenido con éxito", proyecto));
     }
 
-    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
     public ResponseEntity<RespuestaApi<Page<ProyectoComunitarioDto>>> buscarConFiltros(
             @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) Integer carreraId,
@@ -49,16 +49,16 @@ public class ProyectoComunitarioController {
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyectos comunitarios obtenidos con éxito", proyectos));
     }
 
-    @PreAuthorize("hasRole('SUBDECANO')")
     @PostMapping
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<ProyectoComunitarioDto>> crearProyecto(@Valid @RequestBody ProyectoComunitarioNuevoDto dto) {
         ProyectoComunitarioDto nuevoProyecto = proyectoComunitarioService.crearProyecto(dto);
         return ResponseEntity.status(HttpStatus.CREATED) //201 Created
                 .body(new RespuestaApi<>(true, "Proyecto comunitario creado con éxito", nuevoProyecto));
     }
 
-    @PreAuthorize("hasRole('SUBDECANO')")
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<ProyectoComunitarioDto>> actualizarProyecto(
             @PathVariable Long id,
             @Valid @RequestBody ProyectoComunitarioActualizarDto dto) {
@@ -66,8 +66,8 @@ public class ProyectoComunitarioController {
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyecto comunitario actualizado con éxito", actualizado));
     }
 
-    @PreAuthorize("hasRole('SUBDECANO')")
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUBDECANO')")
     public ResponseEntity<RespuestaApi<Void>> eliminarProyecto(@PathVariable Long id) {
         proyectoComunitarioService.eliminarProyecto(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyecto comunitario eliminado con éxito", null));

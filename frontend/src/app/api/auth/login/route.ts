@@ -46,6 +46,7 @@ export async function POST(peticion: Request) {
       name: 'usuario',
       value: JSON.stringify(usuario),
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 8, // 8 horas

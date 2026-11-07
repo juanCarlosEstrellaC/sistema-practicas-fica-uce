@@ -7,7 +7,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -73,6 +73,7 @@ public class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "SUBDECANO")
     @DisplayName("Deberia reenviar correo de activacion exitosamente por ID de usuario")
     void testReenviarActivacionExitoso() throws Exception {
         mockMvc.perform(post("/usuarios/{id}/reenviar-activacion", usuarioPrueba.getId()))

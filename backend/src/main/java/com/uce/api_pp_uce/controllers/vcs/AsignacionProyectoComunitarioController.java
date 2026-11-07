@@ -3,6 +3,7 @@ package com.uce.api_pp_uce.controllers.vcs;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.AprobarHorasSubdecanatoDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioDto;
@@ -12,13 +13,8 @@ import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioResumenDto;
 import com.uce.api_pp_uce.dtos.vcs.ResultadoAprobacionHorasDto;
 import com.uce.api_pp_uce.dtos.vcs.TutorResumenVcsDto;
 import com.uce.api_pp_uce.enums.vcs.EstadoAsignacionVcs;
-import com.uce.api_pp_uce.entities.Usuario;
-import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.enums.vcs.FaseActualAsignacion;
-import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
 import com.uce.api_pp_uce.services.vcs.AsignacionProyectoComunitarioService;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import jakarta.validation.Valid;
 
@@ -53,19 +49,8 @@ public class AsignacionProyectoComunitarioController {
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     @GetMapping("/{id}")
-    public ResponseEntity<RespuestaApi<AsignacionProyectoComunitarioDto>> buscarPorId(
-            @PathVariable Long id,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
+    public ResponseEntity<RespuestaApi<AsignacionProyectoComunitarioDto>> buscarPorId(@PathVariable Long id) {
         AsignacionProyectoComunitarioDto asignacion = asignacionProyectoComunitarioService.buscarPorId(id);
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null) {
-            if (detallesUsuario.getUsuario().getRol() == RolUsuario.ESTUDIANTE
-                    && !detallesUsuario.getUsuario().getId().equals(asignacion.estudianteId())) {
-                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación.");
-            } else if (detallesUsuario.getUsuario().getRol() == RolUsuario.TUTOR_ACADEMICO
-                    && !detallesUsuario.getUsuario().getId().equals(asignacion.tutorId())) {
-                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación.");
-            }
-        }
         return ResponseEntity.ok(new RespuestaApi<>(true, "Asignación obtenida con éxito", asignacion));
     }
 
@@ -81,23 +66,13 @@ public class AsignacionProyectoComunitarioController {
             @RequestParam(required = false) FaseActualAsignacion faseActual,
             @RequestParam(required = false) Long periodoId,
             @RequestParam(required = false) Long periodoAcademicoId,
-            Pageable pageable,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
+            Pageable pageable) {
         Long periodoFinal = periodoId != null ? periodoId : periodoAcademicoId;
-        Long estudianteFiltro = estudianteId;
-        Long tutorFiltro = tutorId;
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null) {
-            if (detallesUsuario.getUsuario().getRol() == RolUsuario.ESTUDIANTE) {
-                estudianteFiltro = detallesUsuario.getUsuario().getId();
-            } else if (detallesUsuario.getUsuario().getRol() == RolUsuario.TUTOR_ACADEMICO) {
-                tutorFiltro = detallesUsuario.getUsuario().getId();
-            }
-        }
         Page<AsignacionProyectoComunitarioDto> asignaciones = asignacionProyectoComunitarioService.buscarConFiltros(
                 busqueda,
                 carreraId,
-                tutorFiltro,
-                estudianteFiltro,
+                tutorId,
+                estudianteId,
                 proyectoId,
                 estado,
                 faseActual,
@@ -202,16 +177,7 @@ public class AsignacionProyectoComunitarioController {
 
     @PreAuthorize("hasAnyRole('TUTOR_ACADEMICO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
     @PatchMapping("/{id}/enviar-subdecanato")
-    public ResponseEntity<RespuestaApi<AsignacionProyectoComunitarioDto>> enviarASubdecanato(
-            @PathVariable Long id,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null
-                && detallesUsuario.getUsuario().getRol() == RolUsuario.TUTOR_ACADEMICO) {
-            AsignacionProyectoComunitarioDto asignacion = asignacionProyectoComunitarioService.buscarPorId(id);
-            if (!detallesUsuario.getUsuario().getId().equals(asignacion.tutorId())) {
-                throw new AccessDeniedException("No tienes permiso para enviar a subdecanato una asignación que no está a su cargo.");
-            }
-        }
+    public ResponseEntity<RespuestaApi<AsignacionProyectoComunitarioDto>> enviarASubdecanato(@PathVariable Long id) {
         AsignacionProyectoComunitarioDto actualizada = asignacionProyectoComunitarioService.enviarASubdecanato(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Documentos validados y enviados a Subdecanato con éxito", actualizada));
     }
@@ -232,57 +198,22 @@ public class AsignacionProyectoComunitarioController {
             @RequestParam(required = false) String subdecanoNombre,
             @RequestParam(required = false) String subdecanoCedula,
             @RequestParam(required = false) String subdecanoTelefono,
-            @RequestParam(required = false) String subdecanoCorreo,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null) {
-            if (detallesUsuario.getUsuario().getRol() == RolUsuario.ESTUDIANTE) {
-                AsignacionProyectoComunitarioDto asignacion = asignacionProyectoComunitarioService.buscarPorId(id);
-                if (!detallesUsuario.getUsuario().getId().equals(asignacion.estudianteId())) {
-                    throw new AccessDeniedException("No tienes permiso para ver el certificado de otro estudiante.");
-                }
-            } else if (detallesUsuario.getUsuario().getRol() == RolUsuario.TUTOR_ACADEMICO) {
-                AsignacionProyectoComunitarioDto asignacion = asignacionProyectoComunitarioService.buscarPorId(id);
-                if (!detallesUsuario.getUsuario().getId().equals(asignacion.tutorId())) {
-                    throw new AccessDeniedException("No tienes permiso para ver el certificado de una asignación que no está a su cargo.");
-                }
-            } else if (detallesUsuario.getUsuario().getRol() == RolUsuario.SUBDECANO) {
-                Usuario u = detallesUsuario.getUsuario();
-                if (subdecanoNombre == null || subdecanoNombre.isBlank()) subdecanoNombre = u.getNombreCompleto();
-                if (subdecanoCedula == null || subdecanoCedula.isBlank()) subdecanoCedula = u.getIdentificacion();
-                if (subdecanoTelefono == null || subdecanoTelefono.isBlank()) subdecanoTelefono = u.getTelefono();
-                if (subdecanoCorreo == null || subdecanoCorreo.isBlank()) subdecanoCorreo = u.getCorreo();
-            }
-        }
-        byte[] bytesPdf = asignacionProyectoComunitarioService.vistaPreviaCertificadoHoras(
+            @RequestParam(required = false) String subdecanoCorreo) {
+        ArchivoDescargaDto descarga = asignacionProyectoComunitarioService.obtenerDescargaCertificadoHoras(
                 id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
-        String nombreArchivo = asignacionProyectoComunitarioService.obtenerNombreArchivoCertificado(id);
-        return construirRespuestaPdf(bytesPdf, nombreArchivo);
+        return construirRespuestaPdf(descarga.contenido(), descarga.nombreArchivo());
     }
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'ESTUDIANTE')")
     @GetMapping("/estudiante/{estudianteId}")
-    public ResponseEntity<RespuestaApi<List<AsignacionProyectoComunitarioDto>>> listarPorEstudiante(
-            @PathVariable Long estudianteId,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null
-                && detallesUsuario.getUsuario().getRol() == RolUsuario.ESTUDIANTE
-                && !detallesUsuario.getUsuario().getId().equals(estudianteId)) {
-            throw new AccessDeniedException("No tienes permiso para consultar asignaciones de otro estudiante.");
-        }
+    public ResponseEntity<RespuestaApi<List<AsignacionProyectoComunitarioDto>>> listarPorEstudiante(@PathVariable Long estudianteId) {
         List<AsignacionProyectoComunitarioDto> asignaciones = asignacionProyectoComunitarioService.listarPorEstudiante(estudianteId);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Asignaciones del estudiante obtenidas con éxito", asignaciones));
     }
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
     @GetMapping("/tutor/{tutorId}")
-    public ResponseEntity<RespuestaApi<List<AsignacionProyectoComunitarioDto>>> listarPorTutor(
-            @PathVariable Long tutorId,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null
-                && detallesUsuario.getUsuario().getRol() == RolUsuario.TUTOR_ACADEMICO
-                && !detallesUsuario.getUsuario().getId().equals(tutorId)) {
-            throw new AccessDeniedException("No tienes permiso para consultar asignaciones de otro tutor.");
-        }
+    public ResponseEntity<RespuestaApi<List<AsignacionProyectoComunitarioDto>>> listarPorTutor(@PathVariable Long tutorId) {
         List<AsignacionProyectoComunitarioDto> asignaciones = asignacionProyectoComunitarioService.listarPorTutor(tutorId);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Asignaciones del tutor académico obtenidas con éxito", asignaciones));
     }

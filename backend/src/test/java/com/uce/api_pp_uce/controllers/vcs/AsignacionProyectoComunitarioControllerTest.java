@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.controllers.vcs;
 
 import tools.jackson.databind.ObjectMapper;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioMasivoDto;
@@ -136,199 +137,68 @@ class AsignacionProyectoComunitarioControllerTest {
     }
 
     @Test
-    @DisplayName("buscarPorId - Como ESTUDIANTE deniega acceso si la asignación pertenece a otro estudiante (403)")
-    void buscarPorId_ComoEstudiante_AccesoDenegadoSiEsAjeno() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(99L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // estudianteId = 50L
+    @DisplayName("buscarPorId - Propaga AccessDeniedException cuando el servicio deniega acceso (403)")
+    void buscarPorId_AccesoDenegado() {
+        when(asignacionProyectoComunitarioService.buscarPorId(1000L))
+                .thenThrow(new AccessDeniedException("No tiene permisos para acceder a esta asignación."));
 
         assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.buscarPorId(1000L, detallesEstudiante));
+                asignacionProyectoComunitarioController.buscarPorId(1000L));
     }
 
     @Test
-    @DisplayName("buscarPorId - Como ESTUDIANTE permite acceso si la asignación es propia (200)")
-    void buscarPorId_ComoEstudiante_PermitidoSiEsPropia() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(50L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // estudianteId = 50L
-
-        var respuesta = asignacionProyectoComunitarioController.buscarPorId(1000L, detallesEstudiante);
-        assertEquals(HttpStatus.OK, respuesta.getStatusCode());
-        assertNotNull(respuesta.getBody());
-        assertEquals(1000L, respuesta.getBody().data().id());
-    }
-
-    @Test
-    @DisplayName("buscarPorId - Como ESTUDIANTE deniega acceso sin NPE si estudianteId en asignación es nulo (403)")
-    void buscarPorId_ComoEstudiante_DeniegaSiEstudianteIdEsNull() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(50L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
-
-        AsignacionProyectoComunitarioDto asignacionSinEstudiante = new AsignacionProyectoComunitarioDto(
-                1000L, 1L, null, null, null, null,
-                10L, "Proyecto", 20L, "Tutor", null, 1L, "Carrera", 100L, "Periodo",
-                80, 0, 0, 80, LocalDate.now(), null, EstadoAsignacionVcs.EN_CURSO,
-                FaseActualAsignacion.ASIGNACION, false, null, LocalDateTime.now());
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionSinEstudiante);
-
-        assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.buscarPorId(1000L, detallesEstudiante));
-    }
-
-    @Test
-    @DisplayName("buscarPorId - Como TUTOR_ACADEMICO deniega acceso si la asignación pertenece a otro tutor (403)")
-    void buscarPorId_ComoTutor_AccesoDenegadoSiEsAjeno() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(99L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // tutorAcademicoId = 20L
-
-        assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.buscarPorId(1000L, detallesTutor));
-    }
-
-    @Test
-    @DisplayName("buscarPorId - Como TUTOR_ACADEMICO deniega acceso si la asignación no tiene tutor asignado (403)")
-    void buscarPorId_ComoTutor_AccesoDenegadoSiTutorIdEsNull() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(20L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
-
-        AsignacionProyectoComunitarioDto asignacionSinTutor = new AsignacionProyectoComunitarioDto(
-                1000L, 1L, 50L, "Juan", "1723456789", "juan@uce.edu.ec",
-                10L, "Proyecto", null, null, null, 1L, "Carrera", 100L, "Periodo",
-                80, 0, 0, 80, LocalDate.now(), null, EstadoAsignacionVcs.EN_CURSO,
-                FaseActualAsignacion.ASIGNACION, false, null, LocalDateTime.now());
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionSinTutor);
-
-        assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.buscarPorId(1000L, detallesTutor));
-    }
-
-    @Test
-    @DisplayName("buscarPorId - Como TUTOR_ACADEMICO permite acceso si el proyecto está a su cargo (200)")
-    void buscarPorId_ComoTutor_PermitidoSiEsPropio() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(20L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // tutorAcademicoId = 20L
-
-        var respuesta = asignacionProyectoComunitarioController.buscarPorId(1000L, detallesTutor);
-        assertEquals(HttpStatus.OK, respuesta.getStatusCode());
-        assertNotNull(respuesta.getBody());
-        assertEquals(1000L, respuesta.getBody().data().id());
-    }
-
-    @Test
-    @DisplayName("vistaPreviaCertificadoHoras - Como ESTUDIANTE deniega si es ajeno (403)")
-    void vistaPreviaCertificadoHoras_ComoEstudiante_DeniegaSiEsAjeno() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(99L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // estudianteId = 50L
-
-        assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.vistaPreviaCertificadoHoras(
-                        1000L, "Subdecano", "1700000000", "0999999999", "sub@uce.edu.ec", detallesEstudiante));
-    }
-
-    @Test
-    @DisplayName("vistaPreviaCertificadoHoras - Como ESTUDIANTE permite si es propio (200)")
-    void vistaPreviaCertificadoHoras_ComoEstudiante_PermitidoSiEsPropio() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(50L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
-
+    @DisplayName("buscarPorId - Retorna 200 OK cuando el acceso es permitido")
+    void buscarPorId_Permitido() {
         when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock);
-        when(asignacionProyectoComunitarioService.vistaPreviaCertificadoHoras(eq(1000L), any(), any(), any(), any()))
-                .thenReturn(new byte[]{1, 2, 3});
-        when(asignacionProyectoComunitarioService.obtenerNombreArchivoCertificado(1000L))
-                .thenReturn("Certificado_Test.pdf");
 
-        var respuesta = asignacionProyectoComunitarioController.vistaPreviaCertificadoHoras(
-                1000L, "Subdecano", "1700000000", "0999999999", "sub@uce.edu.ec", detallesEstudiante);
-
+        var respuesta = asignacionProyectoComunitarioController.buscarPorId(1000L);
         assertEquals(HttpStatus.OK, respuesta.getStatusCode());
         assertNotNull(respuesta.getBody());
+        assertEquals(1000L, respuesta.getBody().data().id());
     }
 
     @Test
-    @DisplayName("vistaPreviaCertificadoHoras - Como TUTOR_ACADEMICO deniega si no es su proyecto (403)")
-    void vistaPreviaCertificadoHoras_ComoTutor_DeniegaSiEsAjeno() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(99L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // tutorId = 20L
+    @DisplayName("vistaPreviaCertificadoHoras - Propaga AccessDeniedException cuando el servicio deniega acceso (403)")
+    void vistaPreviaCertificadoHoras_AccesoDenegado() {
+        when(asignacionProyectoComunitarioService.obtenerDescargaCertificadoHoras(eq(1000L), any(), any(), any(), any()))
+                .thenThrow(new AccessDeniedException("No tienes permiso para ver el certificado de otro estudiante."));
 
         assertThrows(AccessDeniedException.class, () ->
                 asignacionProyectoComunitarioController.vistaPreviaCertificadoHoras(
-                        1000L, "Subdecano", "1700000000", "0999999999", "sub@uce.edu.ec", detallesTutor));
+                        1000L, "Subdecano", "1700000000", "0999999999", "sub@uce.edu.ec"));
     }
 
     @Test
-    @DisplayName("vistaPreviaCertificadoHoras - Como TUTOR_ACADEMICO permite si es su proyecto (200)")
-    void vistaPreviaCertificadoHoras_ComoTutor_PermitidoSiEsPropio() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(20L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
-
-        when(asignacionProyectoComunitarioService.buscarPorId(1000L)).thenReturn(asignacionDtoMock); // tutorId = 20L
-        when(asignacionProyectoComunitarioService.vistaPreviaCertificadoHoras(eq(1000L), any(), any(), any(), any()))
-                .thenReturn(new byte[]{1, 2, 3});
-        when(asignacionProyectoComunitarioService.obtenerNombreArchivoCertificado(1000L))
-                .thenReturn("Certificado_Test.pdf");
+    @DisplayName("vistaPreviaCertificadoHoras - Permite acceso exitoso (200)")
+    void vistaPreviaCertificadoHoras_Permitido() {
+        when(asignacionProyectoComunitarioService.obtenerDescargaCertificadoHoras(eq(1000L), any(), any(), any(), any()))
+                .thenReturn(new ArchivoDescargaDto(new byte[]{1, 2, 3}, "Certificado_Test.pdf", "application/pdf"));
 
         var respuesta = asignacionProyectoComunitarioController.vistaPreviaCertificadoHoras(
-                1000L, "Subdecano", "1700000000", "0999999999", "sub@uce.edu.ec", detallesTutor);
+                1000L, "Subdecano", "1700000000", "0999999999", "sub@uce.edu.ec");
 
         assertEquals(HttpStatus.OK, respuesta.getStatusCode());
         assertNotNull(respuesta.getBody());
     }
 
     @Test
-    @DisplayName("listarPorEstudiante - Como ESTUDIANTE deniega acceso a datos de otro estudiante (403)")
-    void listarPorEstudiante_ComoEstudiante_DeniegaSiEsAjeno() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(50L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
+    @DisplayName("listarPorEstudiante - Propaga AccessDeniedException cuando el servicio deniega acceso (403)")
+    void listarPorEstudiante_AccesoDenegado() {
+        when(asignacionProyectoComunitarioService.listarPorEstudiante(999L))
+                .thenThrow(new AccessDeniedException("No tienes permiso para consultar asignaciones de otro estudiante."));
 
         assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.listarPorEstudiante(999L, detallesEstudiante));
+                asignacionProyectoComunitarioController.listarPorEstudiante(999L));
     }
 
     @Test
-    @DisplayName("listarPorTutor - Como TUTOR_ACADEMICO deniega acceso a datos de otro tutor (403)")
-    void listarPorTutor_ComoTutor_DeniegaSiEsAjeno() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(20L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
+    @DisplayName("listarPorTutor - Propaga AccessDeniedException cuando el servicio deniega acceso (403)")
+    void listarPorTutor_AccesoDenegado() {
+        when(asignacionProyectoComunitarioService.listarPorTutor(999L))
+                .thenThrow(new AccessDeniedException("No tienes permiso para consultar asignaciones de otro tutor."));
 
         assertThrows(AccessDeniedException.class, () ->
-                asignacionProyectoComunitarioController.listarPorTutor(999L, detallesTutor));
+                asignacionProyectoComunitarioController.listarPorTutor(999L));
     }
 
     @Test
@@ -353,58 +223,16 @@ class AsignacionProyectoComunitarioControllerTest {
     }
 
     @Test
-    @DisplayName("buscarConFiltros - Con rol ESTUDIANTE debe forzar estudianteId autenticado asegurando aislamiento")
-    void buscarConFiltros_ComoEstudiante_AislaDatosEstudiante() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setId(50L);
-        usuarioEstudiante.setRol(RolUsuario.ESTUDIANTE);
-        DetallesUsuarioImpl detallesEstudiante = new DetallesUsuarioImpl(usuarioEstudiante);
-
-        when(asignacionProyectoComunitarioService.buscarConFiltros(any(), any(), any(), eq(50L), any(), any(), any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of(asignacionDtoMock), PageRequest.of(0, 10), 1));
-
-        // El estudiante intenta consultar con estudianteId = 999L (intento de suplantación)
-        asignacionProyectoComunitarioController.buscarConFiltros(
-                "Juan", 1, null, 999L, null, EstadoAsignacionVcs.EN_CURSO, null, 100L, null, PageRequest.of(0, 10), detallesEstudiante);
-
-        verify(asignacionProyectoComunitarioService).buscarConFiltros(
-                eq("Juan"), eq(1), isNull(), eq(50L), isNull(), eq(EstadoAsignacionVcs.EN_CURSO), isNull(), eq(100L), any());
-    }
-
-    @Test
-    @DisplayName("buscarConFiltros - Con rol TUTOR_ACADEMICO debe forzar tutorId autenticado asegurando aislamiento")
-    void buscarConFiltros_ComoTutor_AislaDatosTutor() {
-        Usuario usuarioTutor = new Usuario();
-        usuarioTutor.setId(20L);
-        usuarioTutor.setRol(RolUsuario.TUTOR_ACADEMICO);
-        DetallesUsuarioImpl detallesTutor = new DetallesUsuarioImpl(usuarioTutor);
-
-        when(asignacionProyectoComunitarioService.buscarConFiltros(any(), any(), eq(20L), any(), any(), any(), any(), any(), any()))
+    @DisplayName("buscarConFiltros - Delega la consulta con filtros al servicio")
+    void buscarConFiltros_DelegaAlServicio() {
+        when(asignacionProyectoComunitarioService.buscarConFiltros(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(asignacionDtoMock), PageRequest.of(0, 10), 1));
 
         asignacionProyectoComunitarioController.buscarConFiltros(
-                null, 1, 999L, 50L, null, EstadoAsignacionVcs.EN_CURSO, null, 100L, null, PageRequest.of(0, 10), detallesTutor);
+                "Juan", 1, 20L, 50L, null, EstadoAsignacionVcs.EN_CURSO, null, 100L, null, PageRequest.of(0, 10));
 
         verify(asignacionProyectoComunitarioService).buscarConFiltros(
-                isNull(), eq(1), eq(20L), eq(50L), isNull(), eq(EstadoAsignacionVcs.EN_CURSO), isNull(), eq(100L), any());
-    }
-
-    @Test
-    @DisplayName("buscarConFiltros - Con rol administrativo DIRECTOR_CARRERA debe respetar los filtros solicitados")
-    void buscarConFiltros_ComoAdmin_RespetaFiltros() {
-        Usuario usuarioAdmin = new Usuario();
-        usuarioAdmin.setId(5L);
-        usuarioAdmin.setRol(RolUsuario.DIRECTOR_CARRERA);
-        DetallesUsuarioImpl detallesAdmin = new DetallesUsuarioImpl(usuarioAdmin);
-
-        when(asignacionProyectoComunitarioService.buscarConFiltros(any(), any(), eq(20L), eq(50L), any(), any(), any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of(asignacionDtoMock), PageRequest.of(0, 10), 1));
-
-        asignacionProyectoComunitarioController.buscarConFiltros(
-                null, 1, 20L, 50L, null, EstadoAsignacionVcs.EN_CURSO, null, 100L, null, PageRequest.of(0, 10), detallesAdmin);
-
-        verify(asignacionProyectoComunitarioService).buscarConFiltros(
-                isNull(), eq(1), eq(20L), eq(50L), isNull(), eq(EstadoAsignacionVcs.EN_CURSO), isNull(), eq(100L), any());
+                eq("Juan"), eq(1), eq(20L), eq(50L), isNull(), eq(EstadoAsignacionVcs.EN_CURSO), isNull(), eq(100L), any());
     }
 
     @Test
@@ -510,6 +338,27 @@ class AsignacionProyectoComunitarioControllerTest {
     }
 
     @Test
+    @DisplayName("POST /asignaciones-proyectos-comunitarios - Debe retornar 400 BAD REQUEST cuando horasAsignadas excede 160h")
+    void crearAsignacion_ErrorHorasExcedenLimite() throws Exception {
+        String jsonExcesivo = """
+                {
+                    "estudiantesId": [1],
+                    "proyectoComunitarioId": 10,
+                    "horasAsignadas": 161,
+                    "carreraId": 1,
+                    "periodoAcademicoId": 100
+                }
+                """;
+
+        mockMvc.perform(post("/asignaciones-proyectos-comunitarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonExcesivo))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.exito").value(false))
+                .andExpect(jsonPath("$.data.horasAsignadas").exists());
+    }
+
+    @Test
     @DisplayName("POST /asignaciones-proyectos-comunitarios - Debe retornar 400 BAD REQUEST ante NegocioException")
     void crearAsignacion_ErrorNegocio() throws Exception {
         AsignacionProyectoComunitarioMasivoDto peticion = new AsignacionProyectoComunitarioMasivoDto(
@@ -563,6 +412,24 @@ class AsignacionProyectoComunitarioControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.exito").value(false))
                 .andExpect(jsonPath("$.data.proyectoComunitarioId").exists())
+                .andExpect(jsonPath("$.data.horasAsignadas").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /asignaciones-proyectos-comunitarios/{id} - Debe retornar 400 BAD REQUEST cuando horasAsignadas excede 160h")
+    void actualizarAsignacion_ErrorHorasExcedenLimite() throws Exception {
+        String jsonExcesivo = """
+                {
+                    "proyectoComunitarioId": 10,
+                    "horasAsignadas": 165
+                }
+                """;
+
+        mockMvc.perform(put("/asignaciones-proyectos-comunitarios/1000")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonExcesivo))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.exito").value(false))
                 .andExpect(jsonPath("$.data.horasAsignadas").exists());
     }
 

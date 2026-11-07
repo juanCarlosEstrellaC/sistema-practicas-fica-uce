@@ -104,7 +104,7 @@ class ControladorAutenticacionTest {
                 .content(objectMapper.writeValueAsString(peticion)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.exito").value(false))
-                .andExpect(jsonPath("$.mensaje").value("El correo ingresado no se encuentra registrado en el sistema."));
+                .andExpect(jsonPath("$.mensaje").value("Correo o contraseña incorrectos."));
 
         Mockito.verify(intentosLoginService, Mockito.never()).loginFallido("noexiste@uce.edu.ec");
     }

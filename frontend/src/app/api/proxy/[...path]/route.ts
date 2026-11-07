@@ -47,18 +47,20 @@ async function manejarProxy(peticion: NextRequest, { params }: { params: Promise
       cabecerasRespuesta.set('X-Content-Type-Options', 'nosniff');
 
       if (tipoContenido.includes('application/pdf')) {
-        cabecerasRespuesta.delete('x-frame-options');
-        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox allow-forms allow-scripts;");
+        // Permitir incrustación en la misma aplicación (SAMEORIGIN) previniendo clickjacking externo
+        cabecerasRespuesta.set('X-Frame-Options', 'SAMEORIGIN');
+        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox allow-forms allow-scripts; frame-ancestors 'self';");
       } else if (tipoContenido.startsWith('image/')) {
-        cabecerasRespuesta.delete('x-frame-options');
-        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; sandbox;");
+        cabecerasRespuesta.set('X-Frame-Options', 'SAMEORIGIN');
+        cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; sandbox; frame-ancestors 'self';");
       } else {
         // Forzar descarga para formatos no previsualizables con seguridad en el navegador
         cabecerasRespuesta.set('Content-Disposition', 'attachment');
         cabecerasRespuesta.set('Content-Security-Policy', "default-src 'none'; sandbox;");
       }
     } else {
-      cabecerasRespuesta.delete('x-frame-options'); // Eliminar para permitir iframe (evita 'refused to connect')
+      // Permitir iframe dentro del mismo origen para componentes del sistema
+      cabecerasRespuesta.set('X-Frame-Options', 'SAMEORIGIN');
     }
     
     return new NextResponse(respuestaBackend.body, {

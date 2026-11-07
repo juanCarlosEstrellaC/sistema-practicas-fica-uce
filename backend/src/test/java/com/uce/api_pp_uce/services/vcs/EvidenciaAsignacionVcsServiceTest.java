@@ -59,6 +59,8 @@ class EvidenciaAsignacionVcsServiceTest {
     @Mock
     private EvidenciaAsignacionVcsMapeador evidenciaMapeador;
     @Mock
+    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+    @Mock
     private AsignacionProyectoComunitarioMapeador asignacionMapeador;
     @Mock
     private com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository procesoPracticaRepository;

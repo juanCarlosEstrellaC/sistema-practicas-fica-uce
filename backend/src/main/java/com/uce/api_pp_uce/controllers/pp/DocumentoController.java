@@ -1,21 +1,21 @@
 package com.uce.api_pp_uce.controllers.pp;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoPortafolioDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoRevisarDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoResubirDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoSubirDto;
-import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.services.pp.DocumentoPortafolioService;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import com.uce.api_pp_uce.enums.RolUsuario;
-import com.uce.api_pp_uce.excepciones.NegocioException;
-import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,20 +35,8 @@ public class DocumentoController {
     @GetMapping("/estudiante/{estudianteId}")
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     public ResponseEntity<RespuestaApi<List<DocumentoPortafolioDto>>> obtenerPorEstudiante(
-            @PathVariable Long estudianteId,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null
-                && detallesUsuario.getUsuario().getRol() == RolUsuario.ESTUDIANTE
-                && !detallesUsuario.getUsuario().getId().equals(estudianteId)) {
-            throw new NegocioException("No tienes permiso para consultar documentos de otro estudiante");
-        }
+            @PathVariable Long estudianteId) {
         List<DocumentoPortafolioDto> documentos = documentoService.buscarPorEstudiante(estudianteId);
-        RolUsuario rol = (detallesUsuario != null && detallesUsuario.getUsuario() != null)
-                ? detallesUsuario.getUsuario().getRol()
-                : null;
-        if (rol != null) {
-            documentos = documentoService.filtrarDocumentosPorRol(documentos, rol);
-        }
         return ResponseEntity.ok(new RespuestaApi<>(true, "Documentos obtenidos exitosamente", documentos));
     }
 
@@ -61,7 +49,9 @@ public class DocumentoController {
 
     @PutMapping("/{id}/revisar")
     @PreAuthorize("hasAnyRole('COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
-    public ResponseEntity<RespuestaApi<DocumentoPortafolioDto>> revisarDocumento(@PathVariable Long id, @RequestBody DocumentoRevisarDto dto) {
+    public ResponseEntity<RespuestaApi<DocumentoPortafolioDto>> revisarDocumento(
+            @PathVariable Long id,
+            @RequestBody DocumentoRevisarDto dto) {
         DocumentoPortafolioDto documento = documentoService.revisarDocumento(id, dto);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Documento revisado exitosamente", documento));
     }
@@ -70,25 +60,47 @@ public class DocumentoController {
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'TUTOR_ACADEMICO')")
     public ResponseEntity<RespuestaApi<DocumentoPortafolioDto>> resubirDocumento(
             @PathVariable Long id,
-            @RequestBody DocumentoResubirDto dto,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        Usuario usuarioAutenticado = (detallesUsuario != null)
-                ? detallesUsuario.getUsuario()
-                : null;
-        DocumentoPortafolioDto res = documentoService.resubirDocumento(id, dto, usuarioAutenticado);
+            @RequestBody DocumentoResubirDto dto) {
+        DocumentoPortafolioDto res = documentoService.resubirDocumento(id, dto);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Documento resubido correctamente", res));
     }
 
     @PostMapping("/subir")
     @PreAuthorize("hasRole('ESTUDIANTE')")
     public ResponseEntity<RespuestaApi<DocumentoPortafolioDto>> subirDocumento(
-            @RequestBody DocumentoSubirDto dto,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null && dto.estudianteId() != null
-                && !detallesUsuario.getUsuario().getId().equals(dto.estudianteId())) {
-            throw new NegocioException("No puedes subir documentos en nombre de otro estudiante");
-        }
+            @RequestBody DocumentoSubirDto dto) {
         DocumentoPortafolioDto res = documentoService.subirDocumentoPortafolio(dto);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Documento subido correctamente", res));
+    }
+
+    @GetMapping("/{id}/preview")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    public ResponseEntity<byte[]> previsualizarDocumento(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = documentoService.obtenerDocumentoDescarga(id);
+        return construirRespuestaArchivo(descarga.contenido(), descarga.nombreArchivo(), descarga.contentType(), false);
+    }
+
+    @GetMapping("/{id}/descargar")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    public ResponseEntity<byte[]> descargarDocumento(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = documentoService.obtenerDocumentoDescarga(id);
+        return construirRespuestaArchivo(descarga.contenido(), descarga.nombreArchivo(), descarga.contentType(), true);
+    }
+
+    private ResponseEntity<byte[]> construirRespuestaArchivo(byte[] bytes, String nombreArchivo, String contentType, boolean forzarDescarga) {
+        HttpHeaders headers = new HttpHeaders();
+        MediaType mediaType = MediaType.APPLICATION_PDF;
+        if (contentType != null && !contentType.isBlank()) {
+            try {
+                mediaType = MediaType.parseMediaType(contentType);
+            } catch (Exception ignored) {
+            }
+        }
+        headers.setContentType(mediaType);
+        ContentDisposition disposition = (forzarDescarga ? ContentDisposition.attachment() : ContentDisposition.inline())
+                .filename(nombreArchivo)
+                .build();
+        headers.setContentDisposition(disposition);
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 }

@@ -19,8 +19,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDateTime;
 
@@ -30,7 +28,6 @@ import java.time.LocalDateTime;
 })
 @SQLDelete(sql = "UPDATE matrices_caces SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class MatrizCaces {
@@ -41,12 +38,10 @@ public class MatrizCaces {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "periodo_id", nullable = false)
-    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private PeriodoAcademico periodoAcademico;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "carrera_id", nullable = false)
-    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private Carrera carrera;
 
     @Enumerated(EnumType.STRING)

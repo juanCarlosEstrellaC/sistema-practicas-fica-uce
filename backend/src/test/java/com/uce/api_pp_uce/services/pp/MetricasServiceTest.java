@@ -32,6 +32,9 @@ class MetricasServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+
     @InjectMocks
     private MetricasServiceImpl metricasService;
 

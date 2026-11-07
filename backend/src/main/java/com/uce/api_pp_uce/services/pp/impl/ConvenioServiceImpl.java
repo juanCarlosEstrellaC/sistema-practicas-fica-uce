@@ -1,9 +1,11 @@
 package com.uce.api_pp_uce.services.pp.impl;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.ConvenioDto;
 import com.uce.api_pp_uce.dtos.pp.NuevoConvenioDto;
 import com.uce.api_pp_uce.entities.pp.Convenio;
 import com.uce.api_pp_uce.enums.pp.EstadoConvenio;
+import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.excepciones.RecursoNoEncontradoException;
 import com.uce.api_pp_uce.repositories.pp.AsignacionPracticaRepository;
 import com.uce.api_pp_uce.repositories.pp.ConvenioRepository;
@@ -11,12 +13,18 @@ import com.uce.api_pp_uce.enums.pp.EstadoAsignacion;
 import com.uce.api_pp_uce.services.pp.ConvenioService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.uce.api_pp_uce.mapeadores.pp.ConvenioMapeador;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Scheduled;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -26,6 +34,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ConvenioServiceImpl implements ConvenioService {
+
+    @Value("${app.almacenamiento.ruta-base:archivos_subidos}")
+    private String rutaBaseAlmacenamiento;
 
     private final ConvenioRepository convenioRepository;
     private final AsignacionPracticaRepository asignacionPracticaRepository;
@@ -100,7 +111,80 @@ public class ConvenioServiceImpl implements ConvenioService {
 
     private ConvenioDto mapToDto(Convenio convenio) {
         long ocupadosCount = asignacionPracticaRepository.countByConvenioIdAndEstado(convenio.getId(), EstadoAsignacion.EN_CURSO);
-        return convenioMapeador.aDto(convenio, (int) ocupadosCount);
+        ConvenioDto dto = convenioMapeador.aDto(convenio, (int) ocupadosCount);
+        if (convenio.getUrlDocumento() != null && !convenio.getUrlDocumento().isBlank() && convenio.getId() != null) {
+            return new ConvenioDto(
+                    dto.id(),
+                    dto.institucion(),
+                    dto.tipo(),
+                    dto.campoEspecifico(),
+                    dto.direccion(),
+                    dto.fechaInicio(),
+                    dto.fechaFin(),
+                    dto.estado(),
+                    dto.cuposDisponibles(),
+                    dto.tutorInstitucional(),
+                    dto.correoTutor(),
+                    dto.telefonoTutor(),
+                    "/convenios/" + convenio.getId() + "/preview",
+                    dto.nombreDocumento(),
+                    dto.ocupados()
+            );
+        }
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArchivoDescargaDto obtenerConvenioDescarga(Long id) {
+        Convenio convenio = convenioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Convenio no encontrado con ID: " + id));
+
+        if (convenio.getUrlDocumento() == null || convenio.getUrlDocumento().isBlank()) {
+            throw new RecursoNoEncontradoException("El convenio no tiene un documento asociado");
+        }
+
+        String rutaLimpia = convenio.getUrlDocumento().trim();
+        if (rutaLimpia.startsWith("/")) {
+            rutaLimpia = rutaLimpia.substring(1);
+        }
+        if (rutaLimpia.startsWith("archivos_subidos/")) {
+            rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
+        }
+
+        Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
+                .toAbsolutePath().normalize();
+        Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
+
+        if (!filePath.startsWith(carpetaBase)) {
+            throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
+        }
+
+        if (!Files.exists(filePath)) {
+            Path posible = carpetaBase.resolve("practicas/convenios")
+                    .resolve(Paths.get(rutaLimpia).getFileName()).normalize().toAbsolutePath();
+            if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
+                filePath = posible;
+            } else {
+                throw new RecursoNoEncontradoException("El archivo físico del convenio no existe en el servidor: " + filePath.getFileName());
+            }
+        }
+
+        byte[] contenido;
+        try {
+            contenido = Files.readAllBytes(filePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Error al leer el archivo del convenio", e);
+        }
+
+        String nombreDescarga = convenio.getNombreDocumento() != null && !convenio.getNombreDocumento().isBlank()
+                ? convenio.getNombreDocumento()
+                : filePath.getFileName().toString();
+        if (!nombreDescarga.toLowerCase().endsWith(".pdf")) {
+            nombreDescarga += ".pdf";
+        }
+
+        return new ArchivoDescargaDto(contenido, nombreDescarga, "application/pdf");
     }
 
     @Scheduled(cron = "0 0 0 * * ?") // Ejecuta todos los dias a la media noche

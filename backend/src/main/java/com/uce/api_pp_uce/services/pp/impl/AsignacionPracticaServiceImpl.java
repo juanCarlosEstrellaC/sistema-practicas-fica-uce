@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.services.pp.impl;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.AsignacionPracticaDto;
 import com.uce.api_pp_uce.dtos.pp.AsignacionPracticaDetalleDto;
 import com.uce.api_pp_uce.dtos.AsignacionStatsDto;
@@ -34,6 +35,8 @@ import com.uce.api_pp_uce.mapeadores.pp.AsignacionPracticaMapeador;
 import com.uce.api_pp_uce.exportadores.pp.CartaAsignacionPdfExportador;
 import com.uce.api_pp_uce.exportadores.pp.AvalCumplimientoPdfExportador;
 import com.uce.api_pp_uce.services.pp.AsignacionPracticaService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
+import org.springframework.security.access.AccessDeniedException;
 import com.uce.api_pp_uce.services.CorreoService;
 import com.uce.api_pp_uce.services.NotificacionService;
 import lombok.RequiredArgsConstructor;
@@ -74,6 +77,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         private final CorreoService correoService;
         private final AsignacionPracticaMapeador asignacionPracticaMapeador;
         private final ArchivoService archivoService;
+        private final UsuarioAutenticadoService usuarioAutenticadoService;
 
         @Value("${app.almacenamiento.ruta-base:archivos_subidos}")
         private String rutaBaseAlmacenamiento = "archivos_subidos";
@@ -100,14 +104,65 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(ordenes));
         }
 
+        private void validarAccesoAsignacion(AsignacionPractica asignacion, boolean permitirSoloTutorOAdmin) {
+                Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+                if (usuario == null) {
+                        return;
+                }
+                RolUsuario rol = usuario.getRol();
+                if (rol == RolUsuario.SUBDECANO) {
+                        return;
+                }
+                Long usuarioId = usuario.getId();
+                if (rol == RolUsuario.ESTUDIANTE) {
+                        if (permitirSoloTutorOAdmin) {
+                                throw new AccessDeniedException("Operación no permitida para estudiantes.");
+                        }
+                        Long estudianteId = asignacion.getEstudiante() != null ? asignacion.getEstudiante().getId() : null;
+                        if (!usuarioId.equals(estudianteId)) {
+                                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación de prácticas.");
+                        }
+                } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+                        Long tutorId = asignacion.getTutorAcademico() != null ? asignacion.getTutorAcademico().getId() : null;
+                        if (tutorId == null || !usuarioId.equals(tutorId)) {
+                                throw new AccessDeniedException("No tiene permisos: no es el tutor académico asignado a esta práctica.");
+                        }
+                } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
+                        Integer miCarreraId = usuario.getCarrera() != null ? usuario.getCarrera().getId() : null;
+                        Integer carreraAsignacion = (asignacion.getEstudiante() != null && asignacion.getEstudiante().getCarrera() != null)
+                                        ? asignacion.getEstudiante().getCarrera().getId() : null;
+                        if (miCarreraId != null && carreraAsignacion != null && !miCarreraId.equals(carreraAsignacion)) {
+                                throw new AccessDeniedException("No tiene permisos para acceder a asignaciones de otra carrera.");
+                        }
+                }
+        }
+
         @Override
         @Transactional(readOnly = true)
         public Page<AsignacionPracticaDetalleDto> buscarConFiltros(String busqueda, EstadoAsignacion estado,
                         FaseActualPractica fase, Integer carreraId, Long periodoId, Long tutorId, Long estudianteId,
                         Boolean requiereCarta, Pageable pageable) {
+                Integer carreraFiltro = carreraId;
+                Long estudianteFiltro = estudianteId;
+                Long tutorFiltro = tutorId;
+
+                Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+                if (usuario != null) {
+                        RolUsuario rol = usuario.getRol();
+                        if (rol == RolUsuario.ESTUDIANTE) {
+                                estudianteFiltro = usuario.getId();
+                        } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+                                tutorFiltro = usuario.getId();
+                        } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
+                                if (usuario.getCarrera() != null) {
+                                        carreraFiltro = usuario.getCarrera().getId();
+                                }
+                        }
+                }
+
                 Pageable pageableMapeado = mapearPageable(pageable);
                 return asignacionPracticaRepository
-                                .findByFiltros(busqueda, estado, fase, carreraId, periodoId, tutorId, estudianteId,
+                                .findByFiltros(busqueda, estado, fase, carreraFiltro, periodoId, tutorFiltro, estudianteFiltro,
                                                 requiereCarta,
                                                 pageableMapeado)
                                 .map(this::mapToDetalleDto);
@@ -119,6 +174,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 AsignacionPractica asignacion = asignacionPracticaRepository.findById(id)
                                 .orElseThrow(() -> new RecursoNoEncontradoException(
                                                 "Asignacion no encontrada con ID: " + id));
+                validarAccesoAsignacion(asignacion, false);
                 return mapToDetalleDto(asignacion);
         }
 
@@ -273,6 +329,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto emitirCartaAsignacion(Long asignacionId, String urlCartaFirmada) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
 
                 byte[] pdfBytes;
@@ -372,6 +429,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional(readOnly = true)
         public void reenviarCartaAsignacion(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
 
                 String correoTutorInst = asignacion.getConvenio() != null ? asignacion.getConvenio().getCorreoTutor()
                                 : null;
@@ -451,6 +509,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto iniciarDesarrolloPracticas(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
 
                 if (!Boolean.TRUE.equals(asignacion.getCartaAsignacionEnviada())) {
@@ -472,6 +531,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto avanzarHoras(Long asignacionId, Integer horas) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
                 int nuevasHoras = Math.min(asignacion.getHorasCompletadas() + horas, asignacion.getHorasAsignadas());
                 asignacion.setHorasCompletadas(nuevasHoras);
@@ -484,6 +544,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         public AsignacionPracticaDetalleDto firmarRegistroDesarrollo(Long asignacionId, String urlInforme,
                         String urlCertificado, String urlSeguimiento, LocalDate fechaFin) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
 
                 LocalDate fechaInicio = asignacion.getFechaInicio();
@@ -530,6 +591,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto validarCpp(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
                 asignacion.setValidadoCpp(true);
 
@@ -554,6 +616,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto generarAval(Long asignacionId, String urlAvalFirmado) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
 
                 if (!Boolean.TRUE.equals(asignacion.getValidadoCpp())) {
@@ -675,6 +738,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto actualizarDatosCaces(Long asignacionId, String observacionesCaces) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
                 asignacion.setObservacionesCaces(observacionesCaces);
 
@@ -685,6 +749,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto validarSiiu(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
                 asignacion.setValidadoSiiu(true);
 
@@ -695,6 +760,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto reprobarAsignacion(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
 
                 if (asignacion.getEstado() != EstadoAsignacion.EN_CURSO) {
@@ -739,6 +805,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public AsignacionPracticaDetalleDto cancelarAsignacion(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
 
                 if (asignacion.getEstado() == EstadoAsignacion.APROBADO) {
@@ -797,6 +864,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional
         public void eliminarAsignacion(Long asignacionId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
                 if (documentoRepository.existsByAsignacionIdAndTipo(asignacionId, TipoDocumento.CARTA_ASIGNACION)) {
                         throw new IllegalStateException(
@@ -829,6 +897,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         public AsignacionPracticaDetalleDto actualizarAsignacion(Long asignacionId, Long convenioId, Long tutorId,
                         Integer horas, Long periodoAcademicoId) {
                 AsignacionPractica asignacion = buscarEntidadPorId(asignacionId);
+                validarAccesoAsignacion(asignacion, true);
                 validarPeriodoActivoDeAsignacion(asignacion);
                 if (documentoRepository.existsByAsignacionIdAndTipo(asignacionId, TipoDocumento.CARTA_ASIGNACION)) {
                         throw new IllegalStateException(
@@ -915,6 +984,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional(readOnly = true)
         public AsignacionPracticaDto buscarPorId(Long id) {
                 AsignacionPractica asignacion = buscarEntidadPorId(id);
+                validarAccesoAsignacion(asignacion, false);
                 return mapToDto(asignacion);
         }
 
@@ -1026,5 +1096,52 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 return avalCumplimientoPdfExportador.exportar(asignacion, subdecanoNombre, subdecanoCedula,
                                 subdecanoTelefono,
                                 subdecanoCorreo);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ArchivoDescargaDto obtenerCartaAsignacionDescarga(Long asignacionId) {
+                AsignacionPracticaDetalleDto asignacion = buscarDetallePorId(asignacionId);
+                byte[] bytesPdf = cartaAsignacionPdfExportador.exportar(asignacion);
+                String nombreEstudiante = asignacion.estudiante() != null
+                                ? (asignacion.estudiante().nombres() + " " + asignacion.estudiante().apellidos()).trim()
+                                : "Estudiante";
+                String nombreArchivo = nombreEstudiante + " - Carta de Asignacion.pdf";
+                return new ArchivoDescargaDto(bytesPdf, nombreArchivo, "application/pdf");
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ArchivoDescargaDto obtenerAvalDescarga(Long asignacionId, String subdecanoNombre, String subdecanoCedula,
+                        String subdecanoTelefono, String subdecanoCorreo) {
+                return obtenerAvalDescarga(asignacionId, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo, null);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ArchivoDescargaDto obtenerAvalDescarga(Long asignacionId, String subdecanoNombre, String subdecanoCedula,
+                        String subdecanoTelefono, String subdecanoCorreo, Usuario subdecanoAutenticado) {
+                Usuario subdecano = subdecanoAutenticado != null ? subdecanoAutenticado : usuarioAutenticadoService.obtenerUsuarioLogueado();
+                if (subdecano != null && subdecano.getRol() == RolUsuario.SUBDECANO) {
+                        if (subdecanoNombre == null || subdecanoNombre.isBlank()) {
+                                subdecanoNombre = subdecano.getNombreCompleto();
+                        }
+                        if (subdecanoCedula == null || subdecanoCedula.isBlank()) {
+                                subdecanoCedula = subdecano.getIdentificacion();
+                        }
+                        if (subdecanoTelefono == null || subdecanoTelefono.isBlank()) {
+                                subdecanoTelefono = subdecano.getTelefono();
+                        }
+                        if (subdecanoCorreo == null || subdecanoCorreo.isBlank()) {
+                                subdecanoCorreo = subdecano.getCorreo();
+                        }
+                }
+                byte[] bytesPdf = generarPdfAval(asignacionId, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
+                AsignacionPracticaDetalleDto asignacion = buscarDetallePorId(asignacionId);
+                String nombreEstudiante = asignacion.estudiante() != null
+                                ? (asignacion.estudiante().nombres() + " " + asignacion.estudiante().apellidos()).trim()
+                                : "Estudiante";
+                String nombreArchivo = nombreEstudiante + " - Aval de Cumplimiento.pdf";
+                return new ArchivoDescargaDto(bytesPdf, nombreArchivo, "application/pdf");
         }
 }

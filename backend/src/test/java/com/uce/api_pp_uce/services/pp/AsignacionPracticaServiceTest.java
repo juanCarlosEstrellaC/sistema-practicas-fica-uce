@@ -22,6 +22,7 @@ import com.uce.api_pp_uce.enums.pp.TipoConvenio;
 import com.uce.api_pp_uce.enums.pp.TipoDocumento;
 import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.excepciones.RecursoNoEncontradoException;
+import org.springframework.security.access.AccessDeniedException;
 import com.uce.api_pp_uce.exportadores.pp.AvalCumplimientoPdfExportador;
 import com.uce.api_pp_uce.exportadores.pp.CartaAsignacionPdfExportador;
 import com.uce.api_pp_uce.mapeadores.UsuarioMapeador;
@@ -89,6 +90,9 @@ class AsignacionPracticaServiceTest {
 
     @Mock
     private ArchivoService archivoService;
+
+    @Mock
+    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
 
     @InjectMocks
     private AsignacionPracticaServiceImpl asignacionPracticaService;
@@ -720,5 +724,60 @@ class AsignacionPracticaServiceTest {
                 asignacionPracticaService.reprobarAsignacion(100L));
         assertTrue(ex.getMessage().contains("se encuentren en curso"));
         verify(asignacionPracticaRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("buscarDetallePorId - Lanza AccessDeniedException cuando estudiante intenta acceder a asignación de otro estudiante")
+    void buscarDetallePorId_EstudianteAjeno_LanzaAccessDeniedException() {
+        Usuario estudianteAjeno = new Usuario();
+        estudianteAjeno.setId(999L);
+        estudianteAjeno.setRol(RolUsuario.ESTUDIANTE);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudianteAjeno);
+
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+
+        assertThrows(AccessDeniedException.class, () -> asignacionPracticaService.buscarDetallePorId(100L));
+    }
+
+    @Test
+    @DisplayName("reprobarAsignacion - Lanza AccessDeniedException cuando un estudiante intenta reprobar una asignación")
+    void reprobarAsignacion_EstudianteIntentaReprobar_LanzaAccessDeniedException() {
+        Usuario estudiante = new Usuario();
+        estudiante.setId(estudianteMock.getId());
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudiante);
+
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+
+        assertThrows(AccessDeniedException.class, () -> asignacionPracticaService.reprobarAsignacion(100L));
+    }
+
+    @Test
+    @DisplayName("reprobarAsignacion - Lanza AccessDeniedException cuando un tutor que no es el asignado intenta reprobar")
+    void reprobarAsignacion_TutorAjeno_LanzaAccessDeniedException() {
+        Usuario tutorAjeno = new Usuario();
+        tutorAjeno.setId(999L);
+        tutorAjeno.setRol(RolUsuario.TUTOR_ACADEMICO);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutorAjeno);
+
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+
+        assertThrows(AccessDeniedException.class, () -> asignacionPracticaService.reprobarAsignacion(100L));
+    }
+
+    @Test
+    @DisplayName("reprobarAsignacion - Lanza AccessDeniedException cuando un director de otra carrera intenta reprobar")
+    void reprobarAsignacion_DirectorOtraCarrera_LanzaAccessDeniedException() {
+        Carrera otraCarrera = new Carrera();
+        otraCarrera.setId(99);
+        Usuario dcAjeno = new Usuario();
+        dcAjeno.setId(88L);
+        dcAjeno.setRol(RolUsuario.DIRECTOR_CARRERA);
+        dcAjeno.setCarrera(otraCarrera);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(dcAjeno);
+
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+
+        assertThrows(AccessDeniedException.class, () -> asignacionPracticaService.reprobarAsignacion(100L));
     }
 }

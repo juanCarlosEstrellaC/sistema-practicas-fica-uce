@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.controllers.pp;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.AsignacionStatsDto;
 import com.uce.api_pp_uce.dtos.pp.ActualizarAsignacionDto;
 import com.uce.api_pp_uce.dtos.pp.AsignacionPracticaDetalleDto;
@@ -10,12 +11,8 @@ import com.uce.api_pp_uce.dtos.pp.FirmarRegistroDto;
 import com.uce.api_pp_uce.dtos.pp.GenerarAvalDto;
 import com.uce.api_pp_uce.dtos.pp.HorasAsignacionDto;
 import com.uce.api_pp_uce.dtos.pp.NuevaAsignacionDto;
-import com.uce.api_pp_uce.entities.Usuario;
-import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.enums.pp.EstadoAsignacion;
 import com.uce.api_pp_uce.enums.pp.FaseActualPractica;
-import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
-import com.uce.api_pp_uce.services.UsuarioService;
 import com.uce.api_pp_uce.services.pp.AsignacionPracticaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +24,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -47,7 +43,6 @@ import java.time.LocalDate;
 public class AsignacionPracticasController {
 
     private final AsignacionPracticaService asignacionPracticaService;
-    private final UsuarioService usuarioService;
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     @GetMapping
@@ -60,19 +55,9 @@ public class AsignacionPracticasController {
             @RequestParam(required = false) Long tutorId,
             @RequestParam(required = false) Long estudianteId,
             @RequestParam(required = false) Boolean requiereCarta,
-            Pageable pageable,
-            @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        Long estudianteFiltro = estudianteId;
-        Long tutorFiltro = tutorId;
-        if (detallesUsuario != null) {
-            if (detallesUsuario.getUsuario().getRol() == RolUsuario.ESTUDIANTE) {
-                estudianteFiltro = detallesUsuario.getUsuario().getId();
-            } else if (detallesUsuario.getUsuario().getRol() == RolUsuario.TUTOR_ACADEMICO) {
-                tutorFiltro = detallesUsuario.getUsuario().getId();
-            }
-        }
-        Page<AsignacionPracticaDetalleDto> asignaciones = asignacionPracticaService.buscarConFiltros(busqueda, estado, fase, carreraId, periodoId, tutorFiltro, estudianteFiltro, requiereCarta,
-                pageable);
+            Pageable pageable) {
+        Page<AsignacionPracticaDetalleDto> asignaciones = asignacionPracticaService.buscarConFiltros(
+                busqueda, estado, fase, carreraId, periodoId, tutorId, estudianteId, requiereCarta, pageable);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Asignaciones obtenidas", asignaciones));
     }
 
@@ -124,7 +109,8 @@ public class AsignacionPracticasController {
     @PreAuthorize("hasRole('COORDINADOR_PRACTICAS')")
     @PutMapping("/{id}")
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> actualizarAsignacion(
-            @PathVariable Long id, @Valid @RequestBody ActualizarAsignacionDto solicitud) {
+            @PathVariable Long id,
+            @Valid @RequestBody ActualizarAsignacionDto solicitud) {
         AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.actualizarAsignacion(
                 id, solicitud.convenioId(), solicitud.tutorId(), solicitud.horas(), solicitud.periodoAcademicoId());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Asignación actualizada", asignacion));
@@ -133,7 +119,8 @@ public class AsignacionPracticasController {
     @PreAuthorize("hasRole('DIRECTOR_CARRERA')")
     @PostMapping("/{id}/emitir-carta")
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> emitirCarta(
-            @PathVariable Long id, @RequestBody(required = false) EmitirCartaDto solicitud) {
+            @PathVariable Long id,
+            @RequestBody(required = false) EmitirCartaDto solicitud) {
         String urlCarta = (solicitud != null && solicitud.urlCarta() != null) ? solicitud.urlCarta() : null;
         AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.emitirCartaAsignacion(id, urlCarta);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Carta emitida", asignacion));
@@ -142,9 +129,8 @@ public class AsignacionPracticasController {
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     @GetMapping("/{id}/carta-asignacion/preview")
     public ResponseEntity<byte[]> vistaPreviaCartaAsignacion(@PathVariable Long id) {
-        byte[] bytesPdf = asignacionPracticaService.generarPdfCartaAsignacion(id);
-        String nombreArchivo = obtenerNombreUsuarioParaArchivo(id) + " - Carta de Asignacion.pdf";
-        return construirRespuestaPdf(bytesPdf, nombreArchivo);
+        ArchivoDescargaDto descarga = asignacionPracticaService.obtenerCartaAsignacionDescarga(id);
+        return construirRespuestaPdf(descarga.contenido(), descarga.nombreArchivo());
     }
 
     @PreAuthorize("hasRole('DIRECTOR_CARRERA')")
@@ -164,14 +150,17 @@ public class AsignacionPracticasController {
     @PreAuthorize("hasAnyRole('TUTOR_ACADEMICO', 'COORDINADOR_PRACTICAS')")
     @PatchMapping("/{id}/avanzar-horas")
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> avanzarHoras(
-            @PathVariable Long id, @Valid @RequestBody HorasAsignacionDto solicitud) {
+            @PathVariable Long id,
+            @Valid @RequestBody HorasAsignacionDto solicitud) {
         AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.avanzarHoras(id, solicitud.horas());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Horas actualizadas", asignacion));
     }
 
     @PreAuthorize("hasRole('TUTOR_ACADEMICO')")
     @PostMapping("/{id}/firmar-registro")
-    public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> firmarRegistro(@PathVariable Long id, @RequestBody(required = false) FirmarRegistroDto solicitud) {
+    public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> firmarRegistro(
+            @PathVariable Long id,
+            @RequestBody(required = false) FirmarRegistroDto solicitud) {
         String urlInforme = (solicitud != null && solicitud.urlInforme() != null) ? solicitud.urlInforme() : "/docs/informe_final.pdf";
         String urlCertificado = (solicitud != null && solicitud.urlCertificado() != null) ? solicitud.urlCertificado() : "/docs/certificado_cumplimiento.pdf";
         String urlSeguimiento = (solicitud != null && solicitud.urlSeguimiento() != null) ? solicitud.urlSeguimiento() : "/docs/seguimiento_tutor.pdf";
@@ -199,7 +188,8 @@ public class AsignacionPracticasController {
     @PreAuthorize("hasRole('COORDINADOR_PRACTICAS')")
     @PatchMapping("/{id}/datos-caces")
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> actualizarDatosCaces(
-            @PathVariable Long id, @RequestBody DatosCacesDto solicitud) {
+            @PathVariable Long id,
+            @RequestBody DatosCacesDto solicitud) {
         AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.actualizarDatosCaces(id, solicitud.observacionesCaces());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Datos CACES actualizados", asignacion));
     }
@@ -217,27 +207,10 @@ public class AsignacionPracticasController {
                                               @RequestParam(required = false) String subdecanoNombre,
                                               @RequestParam(required = false) String subdecanoCedula,
                                               @RequestParam(required = false) String subdecanoTelefono,
-                                              @RequestParam(required = false) String subdecanoCorreo,
-                                              @AuthenticationPrincipal DetallesUsuarioImpl detallesUsuario) {
-        if (detallesUsuario != null && detallesUsuario.getUsuario() != null
-                && detallesUsuario.getUsuario().getRol() == RolUsuario.SUBDECANO) {
-            Usuario usuarioActual = detallesUsuario.getUsuario();
-            if (subdecanoNombre == null || subdecanoNombre.isBlank()) {
-                subdecanoNombre = usuarioActual.getNombreCompleto();
-            }
-            if (subdecanoCedula == null || subdecanoCedula.isBlank()) {
-                subdecanoCedula = usuarioActual.getIdentificacion();
-            }
-            if (subdecanoTelefono == null || subdecanoTelefono.isBlank()) {
-                subdecanoTelefono = usuarioActual.getTelefono();
-            }
-            if (subdecanoCorreo == null || subdecanoCorreo.isBlank()) {
-                subdecanoCorreo = usuarioActual.getCorreo();
-            }
-        }
-        byte[] bytesPdf = asignacionPracticaService.generarPdfAval(id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
-        String nombreArchivo = obtenerNombreUsuarioParaArchivo(id) + " - Aval de Cumplimiento.pdf";
-        return construirRespuestaPdf(bytesPdf, nombreArchivo);
+                                              @RequestParam(required = false) String subdecanoCorreo) {
+        ArchivoDescargaDto descarga = asignacionPracticaService.obtenerAvalDescarga(
+                id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
+        return construirRespuestaPdf(descarga.contenido(), descarga.nombreArchivo());
     }
 
     private ResponseEntity<byte[]> construirRespuestaPdf(byte[] bytesPdf, String nombreArchivo) {
@@ -245,11 +218,5 @@ public class AsignacionPracticasController {
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDisposition(ContentDisposition.inline().filename(nombreArchivo).build());
         return new ResponseEntity<>(bytesPdf, headers, HttpStatus.OK);
-    }
-
-    private String obtenerNombreUsuarioParaArchivo(Long id){
-        var asignacion = asignacionPracticaService.buscarPorId(id);
-        var usuarioDto = usuarioService.buscarPorId(asignacion.estudianteId());
-        return usuarioDto.nombres() + " " + usuarioDto.apellidos();
     }
 }

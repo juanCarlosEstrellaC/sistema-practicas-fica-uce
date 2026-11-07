@@ -34,11 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -62,6 +63,10 @@ public class AuthServiceImpl implements AuthService {
     public RespuestaAuthDto login(LoginDto peticion) {
         String correoNormalizado = peticion.correo() != null ? peticion.correo().trim().toLowerCase() : "";
 
+        if (servicioIntentosLogin.estaBloqueado(correoNormalizado)) {
+            throw new CredencialesInvalidasException("Cuenta bloqueada temporalmente por múltiples intentos fallidos. Por favor, intente de nuevo en 15 minutos.");
+        }
+
         Optional<Usuario> usuarioOpt = usuarioRepository.findByCorreo(correoNormalizado);
         if (usuarioOpt.isEmpty()) {
             throw new CredencialesInvalidasException("Correo o contraseña incorrectos.");
@@ -81,7 +86,13 @@ public class AuthServiceImpl implements AuthService {
                     )
             );
         } catch (BadCredentialsException ex) {
-            throw new CredencialesInvalidasException("Correo o contraseña incorrectos.");
+            servicioIntentosLogin.loginFallido(correoNormalizado);
+            int restantes = servicioIntentosLogin.getIntentosRestantes(correoNormalizado);
+            if (restantes > 0) {
+                throw new CredencialesInvalidasException("Correo o contraseña incorrectos. Le quedan " + restantes + " intentos antes de bloquear 15 minutos.");
+            } else {
+                throw new CredencialesInvalidasException("Cuenta bloqueada temporalmente por múltiples intentos fallidos. Por favor, intente de nuevo en 15 minutos.");
+            }
         }
 
         // Login exitoso: se reinician los intentos fallidos
@@ -123,7 +134,9 @@ public class AuthServiceImpl implements AuthService {
             if (!token.estaExpirado() && token.getFechaCreacion() != null) {
                 long minutosTranscurridos = ChronoUnit.MINUTES.between(token.getFechaCreacion(), LocalDateTime.now());
                 if (minutosTranscurridos >= 0 && minutosTranscurridos < 5) {
-                    throw new NegocioException("Por favor espere 5 minutos antes de solicitar otro correo.");
+                    // Evitar fuga por enumeracion: no lanzar excepcion que confirme existencia del correo
+                    log.info("Solicitud repetida antes de enfriamiento para {}. No se reenvia.", correoNormalizado);
+                    return;
                 }
             }
         } else {
@@ -131,12 +144,12 @@ public class AuthServiceImpl implements AuthService {
             token.setUsuario(u);
         }
 
-        String tokenCrudo = UUID.randomUUID().toString();
+        String tokenCrudo = generarTokenSeguro();
         String tokenCodificado = hashToken(tokenCrudo);
 
         token.setToken(tokenCodificado);
         token.setFechaCreacion(LocalDateTime.now());
-        token.setFechaExpiracion(LocalDateTime.now().plusHours(1));
+        token.setFechaExpiracion(LocalDateTime.now().plusMinutes(15));
         tokenRecuperacionContraseniaRepository.save(token);
 
         String urlReset = urlFrontend + "/restaurar-contrasenia?token=" + tokenCrudo;
@@ -144,7 +157,7 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> variables = Map.of(
                 "nombre", u.getNombres(),
                 "urlReset", urlReset,
-                "horasExpiracion", 1
+                "tiempoExpiracionTexto", "15 minutos"
         );
         correoService.enviarCorreoHtml(correoNormalizado, "Recuperación de Contraseña - FICA UCE", "email/restaurar-contrasenia", variables);
     }
@@ -198,7 +211,7 @@ public class AuthServiceImpl implements AuthService {
                     return nuevoToken;
                 });
 
-        String tokenCrudo = UUID.randomUUID().toString();
+        String tokenCrudo = generarTokenSeguro();
         String tokenCodificado = hashToken(tokenCrudo);
 
         token.setToken(tokenCodificado);
@@ -251,6 +264,14 @@ public class AuthServiceImpl implements AuthService {
         );
 
         correoService.enviarCorreoHtml(u.getCorreo(), "Cuenta Activada Exitosamente - FICA UCE", "email/cuenta-activada", variables);
+    }
+
+    private static final SecureRandom GENERADOR_ALEATORIO_SEGURO = new SecureRandom();
+
+    private String generarTokenSeguro() {
+        byte[] bytes = new byte[32];
+        GENERADOR_ALEATORIO_SEGURO.nextBytes(bytes);
+        return HexFormat.of().formatHex(bytes);
     }
 
     private String hashToken(String token) {

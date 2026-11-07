@@ -1,17 +1,20 @@
 package com.uce.api_pp_uce.controllers.vcs;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaRevisionTutorDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsNuevoDto;
 import com.uce.api_pp_uce.enums.vcs.EstadoRevisionVcs;
-import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.EvidenciaAsignacionVcsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,7 +35,6 @@ import java.util.List;
 public class EvidenciaAsignacionVcsController {
 
     private final EvidenciaAsignacionVcsService evidenciaAsignacionVcsService;
-    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     @GetMapping("/{id}")
@@ -72,7 +74,7 @@ public class EvidenciaAsignacionVcsController {
     @PostMapping
     public ResponseEntity<RespuestaApi<EvidenciaVcsDto>> subirEvidencia(
             @Valid @RequestBody EvidenciaVcsNuevoDto dto) {
-        EvidenciaVcsDto creada = evidenciaAsignacionVcsService.subirEvidencia(dto, usuarioAutenticadoService.obtenerUsuarioLogueado());
+        EvidenciaVcsDto creada = evidenciaAsignacionVcsService.subirEvidencia(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new RespuestaApi<>(true, "Evidencia subida con éxito", creada));
     }
@@ -91,5 +93,36 @@ public class EvidenciaAsignacionVcsController {
     public ResponseEntity<RespuestaApi<Void>> eliminarEvidencia(@PathVariable Long id) {
         evidenciaAsignacionVcsService.eliminarEvidencia(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Evidencia eliminada con éxito", null));
+    }
+
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<byte[]> previsualizarEvidencia(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = evidenciaAsignacionVcsService.obtenerEvidenciaDescarga(id);
+        return construirRespuestaArchivo(descarga.contenido(), descarga.nombreArchivo(), descarga.contentType(), false);
+    }
+
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    @GetMapping("/{id}/descargar")
+    public ResponseEntity<byte[]> descargarEvidencia(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = evidenciaAsignacionVcsService.obtenerEvidenciaDescarga(id);
+        return construirRespuestaArchivo(descarga.contenido(), descarga.nombreArchivo(), descarga.contentType(), true);
+    }
+
+    private ResponseEntity<byte[]> construirRespuestaArchivo(byte[] bytes, String nombreArchivo, String contentType, boolean forzarDescarga) {
+        HttpHeaders headers = new HttpHeaders();
+        MediaType mediaType = MediaType.APPLICATION_PDF;
+        if (contentType != null && !contentType.isBlank()) {
+            try {
+                mediaType = MediaType.parseMediaType(contentType);
+            } catch (Exception ignored) {
+            }
+        }
+        headers.setContentType(mediaType);
+        ContentDisposition disposition = (forzarDescarga ? ContentDisposition.attachment() : ContentDisposition.inline())
+                .filename(nombreArchivo)
+                .build();
+        headers.setContentDisposition(disposition);
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 }

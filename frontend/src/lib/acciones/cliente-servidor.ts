@@ -38,17 +38,37 @@ export async function obtenerCabecerasSubidaArchivo(): Promise<Record<string, st
 }
 
 /**
- * Lee la cookie 'usuario' desde el servidor y retorna el objeto UsuarioSesion,
- * resultado de transformar el JSON almacenado.
+ * Lee la cookie 'usuario' desde el servidor y valida su correspondencia con el token JWT,
+ * retornando el objeto UsuarioSesion autenticado.
  * 
- * Si la cookie no existe o no es un JSON válido, retorna null.
+ * Si las cookies no existen, el token expiró o la identidad no coincide, retorna null.
  */
 export async function obtenerUsuarioServidor(): Promise<UsuarioSesion | null> {
   const almacenCookies = await cookies();
+  const token = almacenCookies.get('token')?.value;
   const usuarioCookie = almacenCookies.get('usuario')?.value;
-  if (!usuarioCookie) return null;
+
+  if (!token || !usuarioCookie) return null;
+
   try {
-    return JSON.parse(usuarioCookie) as UsuarioSesion;
+    const partesToken = token.split('.');
+    if (partesToken.length !== 3) return null;
+
+    const payload = JSON.parse(Buffer.from(partesToken[1], 'base64url').toString('utf-8'));
+    const tiempoActual = Math.floor(Date.now() / 1000);
+
+    if (payload.exp && payload.exp < tiempoActual) {
+      return null;
+    }
+
+    const usuario = JSON.parse(usuarioCookie) as UsuarioSesion;
+
+    // Verificar que el correo del usuario coincida con el subject del JWT firmado
+    if (payload.sub && usuario.correo && payload.sub.toLowerCase() !== usuario.correo.toLowerCase()) {
+      return null;
+    }
+
+    return usuario;
   } catch {
     return null;
   }

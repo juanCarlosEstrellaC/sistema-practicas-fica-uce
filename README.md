@@ -37,7 +37,7 @@ sistema-practicas-fica-uce/
 * **Lenguaje:** Java 25
 * **Framework:** Spring Boot 4.0.5
 * **Seguridad:** Spring Security con autenticación basada en JWT (JSON Web Tokens)
-* **Persistencia:** Spring Data JPA / Hibernate con auditoría Hibernate Envers
+* **Persistencia:** Spring Data JPA / Hibernate
 * **Base de Datos:** PostgreSQL 16 (H2 para pruebas unitarias e integración)
 * **Generación Documental:** OpenHTMLtoPDF (emisión de certificados, cartas de asignación y avales en PDF)
 * **Gestor de Compilación:** Gradle Wrapper (`gradlew`)

@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.security;
 
+import com.uce.api_pp_uce.common.Utilitarios;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +24,7 @@ public class FiltroRateLimitLogin extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         if ("POST".equalsIgnoreCase(request.getMethod()) && esRutaLogin(request)) {
-            String ipCliente = obtenerIpCliente(request);
+            String ipCliente = Utilitarios.obtenerIpCliente(request);
             if (!servicioRateLimitIp.intentarConsumir(ipCliente)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setHeader("Retry-After", "60");
@@ -40,19 +41,5 @@ public class FiltroRateLimitLogin extends OncePerRequestFilter {
     private boolean esRutaLogin(HttpServletRequest request) {
         String uri = request.getRequestURI();
         return uri != null && (uri.endsWith("/auth/login") || uri.endsWith("/auth/login/"));
-    }
-
-    private String obtenerIpCliente(HttpServletRequest request) {
-        String ip = request.getHeader("CF-Connecting-IP");
-        if (ip == null || ip.isBlank()) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            if (forwarded != null && !forwarded.isBlank()) {
-                ip = forwarded.split(",")[0].trim();
-            }
-        }
-        if (ip == null || ip.isBlank()) {
-            ip = request.getRemoteAddr();
-        }
-        return ip != null ? ip : "desconocida";
     }
 }

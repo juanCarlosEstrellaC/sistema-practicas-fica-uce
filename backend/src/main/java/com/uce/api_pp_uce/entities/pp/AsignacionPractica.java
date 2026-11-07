@@ -19,8 +19,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,7 +27,6 @@ import java.time.LocalDateTime;
 @Table(name = "asignaciones_practicas")
 @SQLDelete(sql = "UPDATE asignaciones_practicas SET borrado = true WHERE id = ?")
 @SQLRestriction("borrado = false OR borrado IS NULL")
-@Audited
 @Getter
 @Setter
 public class AsignacionPractica {
@@ -58,7 +55,6 @@ public class AsignacionPractica {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "periodo_id")
-    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private PeriodoAcademico periodoAcademico;
 
     private Integer semestre;

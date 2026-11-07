@@ -21,7 +21,6 @@ repositories {
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-	implementation("org.hibernate.orm:hibernate-envers")
 	implementation("org.springframework.boot:spring-boot-starter-jdbc")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -30,7 +29,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("com.openhtmltopdf:openhtmltopdf-core:1.0.10")
 	implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
-	implementation("org.mindrot:jbcrypt:0.4")
+	implementation("org.apache.tika:tika-core:2.9.2")
 	implementation("org.apache.poi:poi-ooxml:5.2.3")
 	implementation("io.jsonwebtoken:jjwt-api:0.12.5")
 	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")

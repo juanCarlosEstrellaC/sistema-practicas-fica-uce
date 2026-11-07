@@ -5,6 +5,7 @@ import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.services.ArchivoService;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -12,7 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +36,7 @@ public class ArchivoServiceImpl implements ArchivoService {
     private String rutaBaseAlmacenamiento;
 
     private static final String CARPETA_AVATARES = "general/avatars";
+    private final Tika tika = new Tika();
 
     @PostConstruct
     public void inicializarDirectorio() {
@@ -68,26 +75,69 @@ public class ArchivoServiceImpl implements ArchivoService {
             throw new NegocioException("Solo se permiten imagenes (jpg, jpeg, png, webp)");
         }
 
-        String filename = identificador + "_" + UUID.randomUUID().toString() + "." + extension;
+        // 1. Validacion de Magic Bytes con Apache Tika
+        validarMagicBytes(archivo, "." + extension);
+
+        // 2. Desinfeccion de metadatos EXIF y re-rasterizacion segura
         try {
+            BufferedImage imagenOriginal = ImageIO.read(archivo.getInputStream());
+            if (imagenOriginal == null) {
+                throw new NegocioException("El archivo proporcionado no es una imagen valida o se encuentra daniado.");
+            }
+
+            int anchoOriginal = imagenOriginal.getWidth();
+            int altoOriginal = imagenOriginal.getHeight();
+            if (anchoOriginal > 4096 || altoOriginal > 4096) {
+                throw new NegocioException("Dimensiones de imagen excesivas (maximo 4096x4096)");
+            }
+
+            // Redimensionar proporcionalmente a maximo 512px para optimizar avatar
+            int maxDim = 512;
+            int nuevoAncho = anchoOriginal;
+            int nuevoAlto = altoOriginal;
+            if (anchoOriginal > maxDim || altoOriginal > maxDim) {
+                if (anchoOriginal > altoOriginal) {
+                    nuevoAncho = maxDim;
+                    nuevoAlto = Math.max(1, (altoOriginal * maxDim) / anchoOriginal);
+                } else {
+                    nuevoAlto = maxDim;
+                    nuevoAncho = Math.max(1, (anchoOriginal * maxDim) / altoOriginal);
+                }
+            }
+
+            BufferedImage imagenLimpia = new BufferedImage(nuevoAncho, nuevoAlto, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = imagenLimpia.createGraphics();
+            try {
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.drawImage(imagenOriginal, 0, 0, nuevoAncho, nuevoAlto, null);
+            } finally {
+                g2d.dispose();
+            }
+
             Path directorioAvatares = obtenerRutaAvatares();
             if (!Files.exists(directorioAvatares)) {
                 Files.createDirectories(directorioAvatares);
             }
 
-            Path destinoArchivo = directorioAvatares.resolve(Paths.get(filename))
-                    .normalize().toAbsolutePath();
+            // Siempre se almacena como PNG limpio (eliminando metadatos EXIF y estandarizando formato)
+            String filename = identificador + "_" + UUID.randomUUID().toString() + ".png";
+            Path destinoArchivo = directorioAvatares.resolve(Paths.get(filename)).normalize().toAbsolutePath();
 
             if (!destinoArchivo.getParent().equals(directorioAvatares.toAbsolutePath())) {
                 throw new NegocioException("Ruta no permitida");
             }
 
-            Files.copy(archivo.getInputStream(), destinoArchivo, StandardCopyOption.REPLACE_EXISTING);
+            boolean escrito = ImageIO.write(imagenLimpia, "png", destinoArchivo.toFile());
+            if (!escrito) {
+                throw new NegocioException("No se pudo codificar la imagen sanitizada");
+            }
 
             return "/archivos_subidos/" + CARPETA_AVATARES + "/" + filename;
         } catch (IOException e) {
-            log.error("Error al guardar archivo avatar", e);
-            throw new NegocioException("Fallo al guardar el archivo");
+            log.error("Error al procesar y sanitizar avatar de usuario", e);
+            throw new NegocioException("Fallo al guardar el archivo de avatar");
         }
     }
 
@@ -121,6 +171,9 @@ public class ArchivoServiceImpl implements ArchivoService {
             if (!esValido) {
                 throw new NegocioException("Tipo de archivo no permitido (" + extension + "). Solo se aceptan documentos PDF (.pdf), plantillas Excel (.xlsx, .ods) o imagenes (.png, .jpg, .webp).");
             }
+
+            // Validacion estricta de Magic Bytes mediante Apache Tika
+            validarMagicBytes(archivo, extension);
 
             String subcarpetaDestino;
             if (carpeta != null && !carpeta.trim().isEmpty()) {
@@ -162,6 +215,40 @@ public class ArchivoServiceImpl implements ArchivoService {
         } catch (IOException e) {
             log.error("Error al guardar el archivo", e);
             throw new NegocioException("Error al guardar el archivo: " + e.getMessage());
+        }
+    }
+
+    private void validarMagicBytes(MultipartFile archivo, String extension) {
+        try (InputStream is = archivo.getInputStream()) {
+            String tipoMimeReal = tika.detect(is, archivo.getOriginalFilename());
+            log.info("Inspeccion Tika para '{}': MIME detectado = {}", archivo.getOriginalFilename(), tipoMimeReal);
+
+            if (extension.equalsIgnoreCase(".pdf")) {
+                if (!"application/pdf".equalsIgnoreCase(tipoMimeReal)) {
+                    throw new NegocioException("Firma de archivo invalida: el archivo no corresponde a un documento PDF legitimo (detectado: " + tipoMimeReal + ").");
+                }
+            } else if (extension.equalsIgnoreCase(".xlsx") || extension.equalsIgnoreCase(".ods") || extension.equalsIgnoreCase(".xls")) {
+                boolean esExcelValido = tipoMimeReal.equalsIgnoreCase("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        || tipoMimeReal.equalsIgnoreCase("application/vnd.ms-excel")
+                        || tipoMimeReal.equalsIgnoreCase("application/vnd.oasis.opendocument.spreadsheet")
+                        || tipoMimeReal.equalsIgnoreCase("application/x-tika-ooxml")
+                        || tipoMimeReal.equalsIgnoreCase("application/zip");
+                if (!esExcelValido) {
+                    throw new NegocioException("Firma de archivo invalida: el archivo no corresponde a una hoja de calculo valida (detectado: " + tipoMimeReal + ").");
+                }
+            } else if (extension.equalsIgnoreCase(".png") || extension.equalsIgnoreCase(".jpg") || extension.equalsIgnoreCase(".jpeg") || extension.equalsIgnoreCase(".webp")) {
+                boolean esImagenValida = tipoMimeReal.equalsIgnoreCase("image/jpeg")
+                        || tipoMimeReal.equalsIgnoreCase("image/png")
+                        || tipoMimeReal.equalsIgnoreCase("image/webp");
+                if (!esImagenValida) {
+                    throw new NegocioException("Firma de archivo invalida: el archivo no corresponde a una imagen valida (detectado: " + tipoMimeReal + ").");
+                }
+            } else {
+                throw new NegocioException("Extension de archivo no admitida para analisis de seguridad: " + extension);
+            }
+        } catch (IOException e) {
+            log.error("Error al inspeccionar magic bytes con Apache Tika", e);
+            throw new NegocioException("Error al inspeccionar la seguridad del archivo: " + e.getMessage());
         }
     }
 

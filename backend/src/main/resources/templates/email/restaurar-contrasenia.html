@@ -46,7 +46,7 @@
                             <!-- Aviso de vigencia -->
                             <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px;">
                                 <p style="font-size: 13px; color: #b45309; margin: 0;">
-                                    Este enlace expirará en <strong>1 hora</strong>. Si no solicitaste este cambio, por favor ignora este correo.
+                                    Este enlace expirará en <strong th:text="${tiempoExpiracionTexto ?: '15 minutos'}">15 minutos</strong>. Si no solicitaste este cambio, por favor ignora este correo.
                                 </p>
                             </div>
                         </td>

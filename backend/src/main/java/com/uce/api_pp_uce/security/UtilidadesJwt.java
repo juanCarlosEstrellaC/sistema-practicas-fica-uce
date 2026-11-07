@@ -23,6 +23,12 @@ public class UtilidadesJwt {
     @Value("${jwt.expiration:28800000}")
     private long expiracionJwtMs;
 
+    @Value("${jwt.issuer:api_pp_uce}")
+    private String emisor;
+
+    @Value("${jwt.audience:ppp_uce}")
+    private String audiencia;
+
     private SecretKey obtenerClaveFirma() {
         byte[] bytesClave = secreto.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(bytesClave);
@@ -34,6 +40,8 @@ public class UtilidadesJwt {
             versionToken = 0L;
         }
         return Jwts.builder()
+                .issuer(emisor)
+                .audience().add(audiencia).and()
                 .subject(detallesUsuario.getUsername())
                 .claim("versionToken", versionToken)
                 .issuedAt(new Date(System.currentTimeMillis()))
@@ -62,6 +70,8 @@ public class UtilidadesJwt {
     private Claims extraerTodosLosClaims(String token) {
         return Jwts.parser()
                 .verifyWith(obtenerClaveFirma())
+                .requireIssuer(emisor)
+                .requireAudience(audiencia)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

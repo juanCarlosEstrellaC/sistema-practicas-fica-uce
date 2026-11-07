@@ -1,8 +1,10 @@
 package com.uce.api_pp_uce.services.pp;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.AsignacionPracticaDto;
 import com.uce.api_pp_uce.dtos.pp.AsignacionPracticaDetalleDto;
 import com.uce.api_pp_uce.dtos.AsignacionStatsDto;
+import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.enums.pp.EstadoAsignacion;
 import com.uce.api_pp_uce.enums.pp.FaseActualPractica;
 import java.time.LocalDate;
@@ -32,7 +34,15 @@ public interface AsignacionPracticaService {
 
     byte[] generarPdfCartaAsignacion(Long asignacionId);
 
+    ArchivoDescargaDto obtenerCartaAsignacionDescarga(Long asignacionId);
+
     byte[] generarPdfAval(Long asignacionId, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo);
+
+    default ArchivoDescargaDto obtenerAvalDescarga(Long asignacionId, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo) {
+        return obtenerAvalDescarga(asignacionId, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo, null);
+    }
+
+    ArchivoDescargaDto obtenerAvalDescarga(Long asignacionId, String subdecanoNombre, String subdecanoCedula, String subdecanoTelefono, String subdecanoCorreo, Usuario subdecanoAutenticado);
 
     AsignacionPracticaDetalleDto validarCpp(Long asignacionId);
 

@@ -235,7 +235,7 @@ public class AuthServiceTest {
         when(usuarioRepository.findByCorreo("noexiste@uce.edu.ec")).thenReturn(Optional.empty());
 
         CredencialesInvalidasException ex = assertThrows(CredencialesInvalidasException.class, () -> authService.login(dto));
-        assertEquals("El correo ingresado no se encuentra registrado en el sistema.", ex.getMessage());
+        assertEquals("Correo o contraseña incorrectos.", ex.getMessage());
         verify(servicioIntentosLogin, org.mockito.Mockito.never()).loginFallido(anyString());
     }
 }

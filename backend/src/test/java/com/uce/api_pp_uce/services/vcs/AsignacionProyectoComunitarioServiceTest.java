@@ -43,6 +43,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.springframework.security.access.AccessDeniedException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -99,6 +100,9 @@ class AsignacionProyectoComunitarioServiceTest {
 
     @Mock
     private EvidenciaAsignacionVcsRepository evidenciaAsignacionVcsRepository;
+
+    @Mock
+    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
 
     @InjectMocks
     private AsignacionProyectoComunitarioServiceImpl asignacionProyectoComunitarioService;
@@ -215,6 +219,56 @@ class AsignacionProyectoComunitarioServiceTest {
         when(asignacionProyectoComunitarioRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(RecursoNoEncontradoException.class, () -> asignacionProyectoComunitarioService.buscarPorId(999L));
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Como ESTUDIANTE ajeno debe denegar acceso (403)")
+    void buscarPorId_EstudianteAjeno_LanzaAccessDeniedException() {
+        Usuario usuarioAjeno = new Usuario();
+        usuarioAjeno.setId(999L);
+        usuarioAjeno.setRol(RolUsuario.ESTUDIANTE);
+
+        when(asignacionProyectoComunitarioRepository.findById(1000L)).thenReturn(Optional.of(asignacionMock));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(usuarioAjeno);
+
+        assertThrows(AccessDeniedException.class, () -> asignacionProyectoComunitarioService.buscarPorId(1000L));
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Como TUTOR ajeno debe denegar acceso (403)")
+    void buscarPorId_TutorAjeno_LanzaAccessDeniedException() {
+        Usuario tutorAjeno = new Usuario();
+        tutorAjeno.setId(999L);
+        tutorAjeno.setRol(RolUsuario.TUTOR_ACADEMICO);
+
+        when(asignacionProyectoComunitarioRepository.findById(1000L)).thenReturn(Optional.of(asignacionMock));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutorAjeno);
+
+        assertThrows(AccessDeniedException.class, () -> asignacionProyectoComunitarioService.buscarPorId(1000L));
+    }
+
+    @Test
+    @DisplayName("listarPorEstudiante - Como ESTUDIANTE consultando a otro debe denegar acceso (403)")
+    void listarPorEstudiante_OtroEstudiante_LanzaAccessDeniedException() {
+        Usuario estudiante = new Usuario();
+        estudiante.setId(50L);
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudiante);
+
+        assertThrows(AccessDeniedException.class, () -> asignacionProyectoComunitarioService.listarPorEstudiante(999L));
+    }
+
+    @Test
+    @DisplayName("listarPorTutor - Como TUTOR consultando a otro debe denegar acceso (403)")
+    void listarPorTutor_OtroTutor_LanzaAccessDeniedException() {
+        Usuario tutor = new Usuario();
+        tutor.setId(20L);
+        tutor.setRol(RolUsuario.TUTOR_ACADEMICO);
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutor);
+
+        assertThrows(AccessDeniedException.class, () -> asignacionProyectoComunitarioService.listarPorTutor(999L));
     }
 
     @Test

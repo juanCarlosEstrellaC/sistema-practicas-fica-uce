@@ -1,14 +1,18 @@
 package com.uce.api_pp_uce.controllers.auth;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.common.Utilitarios;
 import com.uce.api_pp_uce.dtos.auth.LoginDto;
 import com.uce.api_pp_uce.dtos.auth.OlvidoContraseniaDto;
 import com.uce.api_pp_uce.dtos.auth.RespuestaAuthDto;
 import com.uce.api_pp_uce.dtos.auth.RestaurarContraseniaDto;
+import com.uce.api_pp_uce.security.ServicioRateLimitIp;
 import com.uce.api_pp_uce.services.auth.AuthService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final ServicioRateLimitIp servicioRateLimitIp;
 
     @PostMapping("/login")
     public ResponseEntity<RespuestaApi<RespuestaAuthDto>> login(@Valid @RequestBody LoginDto peticion) {
@@ -29,9 +34,21 @@ public class AuthController {
     }
 
     @PostMapping("/olvido-contrasenia")
-    public ResponseEntity<RespuestaApi<Void>> olvidoContrasenia(@Valid @RequestBody OlvidoContraseniaDto peticion) {
+    public ResponseEntity<RespuestaApi<Void>> olvidoContrasenia(
+            @Valid @RequestBody OlvidoContraseniaDto peticion,
+            HttpServletRequest request) {
+        String ipCliente = Utilitarios.obtenerIpCliente(request);
+        if (!servicioRateLimitIp.intentarConsumirRecuperacionIp(ipCliente)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new RespuestaApi<>(false, "Demasiadas solicitudes de recuperación desde esta dirección IP. Por favor intente más tarde.", null));
+        }
+        if (!servicioRateLimitIp.intentarConsumirRecuperacionCorreo(peticion.correo())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new RespuestaApi<>(false, "Demasiadas solicitudes de recuperación para este correo. Por favor intente más tarde.", null));
+        }
+
         authService.solicitarRestaurarContrasenia(peticion.correo());
-        return ResponseEntity.ok(new RespuestaApi<>(true, "Se ha enviado un correo con las instrucciones", null));
+        return ResponseEntity.ok(new RespuestaApi<>(true, "Si el correo coincide con una cuenta activa, recibirás un mensaje con las instrucciones.", null));
     }
 
     @PostMapping("/restaurar-contrasenia")

@@ -27,6 +27,7 @@ public interface UsuarioService {
     void cambiarContrasenia(Long id, CambiarContraseniaDto dto);
     boolean validarContrasenia(Long id, String contrasenia);
     void actualizarAvatar(Long id, String urlAvatar);
+    String subirAvatar(Long id, MultipartFile file);
     void reenviarTokenActivacion(Long id);
     UsuarioDto transferirSubdecanato(Long nuevoSubdecanoId);
 }

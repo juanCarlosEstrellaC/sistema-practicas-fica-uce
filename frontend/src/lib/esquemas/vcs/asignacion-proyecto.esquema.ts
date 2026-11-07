@@ -3,14 +3,14 @@ import { z } from 'zod';
 export const esquemaAsignacionProyectoComunitario = z.object({
     estudiantesId: z.array(z.coerce.number().int().positive()).min(1, 'Debe seleccionar al menos un estudiante'),
     proyectoComunitarioId: z.coerce.number().int().positive('Debe seleccionar un proyecto comunitario'),
-    horasAsignadas: z.coerce.number().int().positive('El número de horas debe ser mayor a cero').max(500, 'El número de horas no puede superar 500'),
+    horasAsignadas: z.coerce.number().int().positive('El número de horas debe ser mayor a cero').max(160, 'El número de horas no puede superar 160'),
     carreraId: z.number().int().positive(),
     periodoAcademicoId: z.number().int().positive()
 });
 
 export const esquemaAsignacionProyectoComunitarioActualizar = z.object({
     proyectoComunitarioId: z.coerce.number().int().positive('Debe seleccionar un proyecto comunitario'),
-    horasAsignadas: z.coerce.number().int().positive('El número de horas debe ser mayor a cero').max(500, 'El número de horas no puede superar 500')
+    horasAsignadas: z.coerce.number().int().positive('El número de horas debe ser mayor a cero').max(160, 'El número de horas no puede superar 160')
 });
 
 export const esquemaFiltrosAsignacionProyecto = z.object({

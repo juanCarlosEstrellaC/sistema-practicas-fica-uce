@@ -16,14 +16,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "procesos_practicas")
-@Audited
 @Getter
 @Setter
 public class ProcesoPractica {
@@ -37,7 +34,6 @@ public class ProcesoPractica {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "carrera_id", nullable = false)
-    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private Carrera carrera;
 
     @Column(name = "horas_requeridas", nullable = false)

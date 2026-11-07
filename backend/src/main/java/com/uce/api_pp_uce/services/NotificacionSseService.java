@@ -2,6 +2,8 @@ package com.uce.api_pp_uce.services;
 
 import com.uce.api_pp_uce.dtos.NotificacionRespuestaDto;
 import com.uce.api_pp_uce.entities.Notificacion;
+import com.uce.api_pp_uce.entities.Usuario;
+import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.mapeadores.NotificacionMapeador;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -18,13 +20,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class NotificacionSseService {
 
     private final NotificacionMapeador notificacionMapeador;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
     private final Map<Long, List<SseEmitter>> emisores = new ConcurrentHashMap<>();
 
-    public NotificacionSseService(NotificacionMapeador notificacionMapeador) {
+    public NotificacionSseService(NotificacionMapeador notificacionMapeador, UsuarioAutenticadoService usuarioAutenticadoService) {
         this.notificacionMapeador = notificacionMapeador;
+        this.usuarioAutenticadoService = usuarioAutenticadoService;
     }
 
     public SseEmitter suscribir(Long usuarioId) {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuario != null && !usuario.getId().equals(usuarioId)) {
+            throw new NegocioException("No tienes permiso para acceder a las notificaciones de otro usuario");
+        }
         // Timeout de 30 minutos (1800000ms)
         SseEmitter emisor = new SseEmitter(1800000L);
         emisores.computeIfAbsent(usuarioId, k -> new CopyOnWriteArrayList<>()).add(emisor);
