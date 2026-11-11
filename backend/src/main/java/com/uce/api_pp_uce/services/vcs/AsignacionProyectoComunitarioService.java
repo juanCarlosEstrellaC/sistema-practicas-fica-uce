@@ -77,7 +77,11 @@ public interface AsignacionProyectoComunitarioService {
 
     AsignacionProyectoComunitarioDto iniciarDesarrollo(Long id);
 
-    int iniciarProyecto(Long proyectoId);
+    int iniciarProyecto(Long proyectoId, Long periodoId);
+
+    default int iniciarProyecto(Long proyectoId) {
+        return iniciarProyecto(proyectoId, null);
+    }
 
     AsignacionProyectoComunitarioDto enviarASubdecanato(Long id);
 

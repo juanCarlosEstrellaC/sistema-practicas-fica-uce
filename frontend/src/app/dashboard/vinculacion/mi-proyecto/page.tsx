@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { obtenerUsuarioServidor } from '@/lib/acciones/cliente-servidor';
+import { obtenerPeriodosAcademicosAccion } from '@/lib/acciones/periodo-academico.acciones';
 import {
   obtenerAsignacionesPorEstudianteAccion,
   obtenerEvidenciasPorAsignacionAccion,
@@ -16,8 +17,15 @@ export default async function PaginaMiProyectoComunitario() {
   const usuario = await obtenerUsuarioServidor();
   const estudianteId = usuario?.id ? Number(usuario.id) : 0;
 
-  const resAsignaciones = await obtenerAsignacionesPorEstudianteAccion(estudianteId);
+  const [resAsignaciones, resPeriodos] = await Promise.all([
+    obtenerAsignacionesPorEstudianteAccion(estudianteId),
+    obtenerPeriodosAcademicosAccion(),
+  ]);
   const asignaciones = resAsignaciones.data || [];
+  const periodos = resPeriodos.content || [];
+  const periodosInactivosIds = periodos
+    .filter((p) => p.estado === 'INACTIVO')
+    .map((p) => Number(p.id));
 
   const evidenciasInicialesPorAsignacion: Record<number, EvidenciaVcs[]> = {};
   await Promise.all(
@@ -47,6 +55,7 @@ export default async function PaginaMiProyectoComunitario() {
       <VistaProyectoEstudiante
         asignaciones={asignaciones}
         evidenciasInicialesPorAsignacion={evidenciasInicialesPorAsignacion}
+        periodosInactivosIds={periodosInactivosIds}
       />
     </div>
   );

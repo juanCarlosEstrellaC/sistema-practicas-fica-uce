@@ -58,7 +58,7 @@ export function ModalAprobarHorasSubdecano({
     const urlFinal = urlLocalFirmado || adaptarUrlProxy(urlPreviewPdf!);
     const nombreEstudiante = asignacion?.nombreCompletoEstudiante || 'Estudiante';
     const nombreCarrera = asignacion?.nombreCarrera || 'Carrera';
-    const nombreArchivo = `Certificado_VCS_${nombreEstudiante}_${nombreCarrera}.pdf`.replace(/\s+/g, '_');
+    const nombreArchivo = `${nombreEstudiante} - Certificado VCS.pdf`;
     const enlace = document.createElement('a');
     enlace.href = urlFinal;
     enlace.download = nombreArchivo;

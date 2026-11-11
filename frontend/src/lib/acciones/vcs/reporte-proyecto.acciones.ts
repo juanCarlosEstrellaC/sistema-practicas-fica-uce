@@ -65,11 +65,13 @@ export async function obtenerReportesProyectoPaginadosAccion(
 }
 
 export async function obtenerReportesPorProyectoAccion(
-    proyectoId: number
+    proyectoId: number,
+    periodoId?: number
 ): Promise<RespuestaApi<ReporteProyecto[]>> {
     try {
         const cabeceras = await obtenerCabecerasAutenticacion();
-        const respuesta = await fetch(`${URL_BACKEND}/reportes-proyectos-vcs/proyecto/${proyectoId}`, {
+        const query = periodoId ? `?periodoId=${periodoId}` : '';
+        const respuesta = await fetch(`${URL_BACKEND}/reportes-proyectos-vcs/proyecto/${proyectoId}${query}`, {
             method: 'GET',
             headers: cabeceras,
             cache: 'no-store',

@@ -6,6 +6,7 @@ import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsDto;
 import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsNuevoDto;
 import com.uce.api_pp_uce.dtos.vcs.ResultadoAprobacionHorasDto;
 import com.uce.api_pp_uce.dtos.vcs.AsignacionProyectoComunitarioDto;
+import com.uce.api_pp_uce.entities.Carrera;
 import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.entities.vcs.AsignacionProyectoComunitario;
 import com.uce.api_pp_uce.entities.vcs.EvidenciaAsignacionVcs;
@@ -19,13 +20,20 @@ import com.uce.api_pp_uce.enums.vcs.EstadoRevisionVcs;
 import com.uce.api_pp_uce.enums.vcs.FaseActualAsignacion;
 import com.uce.api_pp_uce.enums.vcs.TipoDocumentoVcs;
 import com.uce.api_pp_uce.excepciones.NegocioException;
+import com.uce.api_pp_uce.exportadores.vcs.CertificadoHorasVcsPdfExportador;
 import com.uce.api_pp_uce.mapeadores.vcs.AsignacionProyectoComunitarioMapeador;
 import com.uce.api_pp_uce.mapeadores.vcs.EvidenciaAsignacionVcsMapeador;
+import com.uce.api_pp_uce.mapeadores.vcs.ProyectoComunitarioMapeador;
+import com.uce.api_pp_uce.repositories.CarreraRepository;
+import com.uce.api_pp_uce.repositories.PeriodoAcademicoRepository;
+import com.uce.api_pp_uce.repositories.UsuarioRepository;
+import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
 import com.uce.api_pp_uce.repositories.vcs.AsignacionProyectoComunitarioRepository;
 import com.uce.api_pp_uce.repositories.vcs.EvidenciaAsignacionVcsRepository;
 import com.uce.api_pp_uce.repositories.vcs.ProcesoVinculacionRepository;
 import com.uce.api_pp_uce.repositories.vcs.ProyectoComunitarioRepository;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.impl.AsignacionProyectoComunitarioServiceImpl;
 import com.uce.api_pp_uce.services.vcs.impl.EvidenciaAsignacionVcsServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,11 +45,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EvidenciaAsignacionVcsServiceTest {
@@ -59,13 +75,21 @@ class EvidenciaAsignacionVcsServiceTest {
     @Mock
     private EvidenciaAsignacionVcsMapeador evidenciaMapeador;
     @Mock
-    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+    private UsuarioAutenticadoService usuarioAutenticadoService;
     @Mock
     private AsignacionProyectoComunitarioMapeador asignacionMapeador;
     @Mock
-    private com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository procesoPracticaRepository;
+    private ProcesoPracticaRepository procesoPracticaRepository;
     @Mock
-    private com.uce.api_pp_uce.repositories.UsuarioRepository usuarioRepository;
+    private UsuarioRepository usuarioRepository;
+    @Mock
+    private PeriodoAcademicoRepository periodoAcademicoRepository;
+    @Mock
+    private CarreraRepository carreraRepository;
+    @Mock
+    private CertificadoHorasVcsPdfExportador certificadoHorasVcsPdfExportador;
+    @Mock
+    private ProyectoComunitarioMapeador proyectoComunitarioMapeador;
 
     @InjectMocks
     private EvidenciaAsignacionVcsServiceImpl evidenciaService;
@@ -131,6 +155,8 @@ class EvidenciaAsignacionVcsServiceTest {
     @DisplayName("Iniciar desarrollo pasa fase a DESARROLLO y proyecto a ACTIVO")
     void iniciarDesarrolloExitoso() {
         when(asignacionRepository.findById(50L)).thenReturn(Optional.of(asignacion));
+        when(proyectoRepository.findById(1L)).thenReturn(Optional.of(proyecto));
+        when(asignacionRepository.findByProyectoComunitarioId(1L)).thenReturn(List.of(asignacion));
         when(asignacionRepository.save(any(AsignacionProyectoComunitario.class))).thenReturn(asignacion);
         when(asignacionMapeador.aDto(asignacion)).thenReturn(new AsignacionProyectoComunitarioDto(
                 50L, 100L, 10L, "Carlos Estrella", "1720000000", "estudiante@uce.edu.ec",
@@ -232,12 +258,21 @@ class EvidenciaAsignacionVcsServiceTest {
     }
 
     @Test
-    @DisplayName("Aprobación final de horas por Subdecanato culmina el ProcesoVinculacion")
+    @DisplayName("Aprobación final de horas por Subdecanato culmina el ProcesoVinculacion y notifica a Estudiante, TA y CPP")
     void aprobarHorasSubdecanatoCulminaProceso() {
+        Carrera carrera = new Carrera();
+        carrera.setId(1);
+        proceso.setCarrera(carrera);
+
+        Usuario cpp = new Usuario();
+        cpp.setId(30L);
+        cpp.setRol(RolUsuario.COORDINADOR_PRACTICAS);
+
         asignacion.setDocumentosValidados(true);
         AprobarHorasSubdecanatoDto dto = new AprobarHorasSubdecanatoDto(80, "Aprobación oficial", null);
 
         when(asignacionRepository.findById(50L)).thenReturn(Optional.of(asignacion));
+        when(usuarioRepository.findByRolAndCarreraId(RolUsuario.COORDINADOR_PRACTICAS, 1)).thenReturn(Optional.of(cpp));
 
         ResultadoAprobacionHorasDto resultado = asignacionService.aprobarHorasSubdecanato(50L, dto);
 
@@ -249,6 +284,9 @@ class EvidenciaAsignacionVcsServiceTest {
         assertTrue(resultado.procesoCulminado());
         verify(procesoRepository).save(proceso);
         verify(asignacionRepository).save(asignacion);
+        verify(notificacionService).enviar(eq(10L), eq("¡Proceso de Vinculación Culminado!"), anyString(), any(), anyString());
+        verify(notificacionService).enviar(eq(20L), eq("Proceso de Vinculación Culminado"), anyString(), any(), eq("/dashboard/vinculacion/asignaciones-existentes?asignacionId=50"));
+        verify(notificacionService).enviar(eq(30L), eq("Proceso de Vinculación Culminado"), anyString(), any(), eq("/dashboard/vinculacion/asignaciones-existentes?asignacionId=50"));
     }
 
     @Test

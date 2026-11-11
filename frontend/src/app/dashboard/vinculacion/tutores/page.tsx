@@ -93,7 +93,7 @@ export default async function PaginaTutoresVinculacion({
       <FiltrosTutoresVcs proyectos={proyectos} carreras={carreras} />
 
       {/* Tabla de Tutores */}
-      <TablaTutoresVcs tutores={tutores} proyectos={proyectos} />
+      <TablaTutoresVcs tutores={tutores} proyectos={proyectos} esInactivo={esInactivo} />
     </div>
   );
 }

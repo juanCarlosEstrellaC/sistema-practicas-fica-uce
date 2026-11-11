@@ -41,11 +41,13 @@ import { toast } from 'sonner';
 interface VistaProyectoEstudianteProps {
   asignaciones: AsignacionProyectoDto[];
   evidenciasInicialesPorAsignacion?: Record<number, EvidenciaVcs[]>;
+  periodosInactivosIds?: number[];
 }
 
 export function VistaProyectoEstudiante({
   asignaciones,
   evidenciasInicialesPorAsignacion = {},
+  periodosInactivosIds = [],
 }: VistaProyectoEstudianteProps) {
   // Estado de colapso de cada proyecto (el primer proyecto expandido por defecto)
   const [proyectosColapsados, setProyectosColapsados] = useState<Record<number, boolean>>(() => {
@@ -177,11 +179,15 @@ export function VistaProyectoEstudiante({
         const bitacora = evidenciasProyecto.find((e) => e.tipoDocumento === 'BITACORA');
         const informeFinal = evidenciasProyecto.find((e) => e.tipoDocumento === 'INFORME_FINAL');
 
+        const esPeriodoInactivo = periodosInactivosIds.includes(Number(asig.periodoAcademicoId));
+        const esAsignacionCerrada = asig.estado === 'REPROBADO' || asig.estado === 'CANCELADO';
+        const bloqueoCargaPeriodo = esPeriodoInactivo || esAsignacionCerrada;
+
         const esAprobado = asig.estado === 'APROBADO';
         const esFinalizacion = asig.faseActual === 'FINALIZACION';
         const horasValidadas = esAprobado
           ? (asig.horasCompletadas || asig.horasAsignadas || 0)
-          : (asig.horasCompletadas || 0);
+          : 0;
         const esCompletado = esAprobado;
 
         const certificadoDesbloqueado =
@@ -366,11 +372,9 @@ export function VistaProyectoEstudiante({
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                         <FileText className="h-4 w-4 text-primary" />
-                        Portafolio de Evidencias
+                        Portafolio de Evidencias y Documentos
                       </h3>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                        2 evidencias requeridas
-                      </span>
+
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Suba su bitácora de actividades y el informe final en formato PDF (se requieren ambos para pasar a la fase de Finalización). Tras la validación de su tutor académico, Subdecanato emitirá el certificado de horas.
@@ -381,30 +385,36 @@ export function VistaProyectoEstudiante({
                   <div className="space-y-3">
                     {/* DOCUMENTO 1: BITÁCORA */}
                     <ItemDocumentoPortafolio
-                      titulo="1. Bitácora de Actividades (PDF)"
-                      descripcion="Registro detallado y cronológico de actividades comunitarias y firmas de asistencia"
+                      titulo="1. Bitácora de Actividades"
+                      descripcion="Registro detallado y cronológico de actividades comunitarias y firmas de asistencia en formato PDF."
                       evidencia={bitacora}
                       tipo="BITACORA"
                       estaSubiendo={subiendoDoc[`${asig.id}_BITACORA`] ?? false}
                       deshabilitadoPorFase={asig.faseActual === 'ASIGNACION'}
+                      deshabilitadoPorPeriodoInactivo={bloqueoCargaPeriodo}
                       alSeleccionarArchivo={(archivo) =>
                         manejarSubirArchivoDirecto(asig, 'BITACORA', archivo)
                       }
                       alDescargar={(e) =>
                         bitacora &&
-                        manejarDescarga(e, bitacora.urlArchivo, bitacora.nombreArchivo || 'Bitacora.pdf')
+                        manejarDescarga(
+                          e,
+                          bitacora.id ? `/evidencias-vcs/${bitacora.id}/descargar` : bitacora.urlArchivo,
+                          bitacora.nombreArchivo || 'Bitacora.pdf'
+                        )
                       }
                       referenciaInput={(el) => (referenciasInput.current[`${asig.id}_BITACORA`] = el)}
                     />
 
                     {/* DOCUMENTO 2: INFORME FINAL */}
                     <ItemDocumentoPortafolio
-                      titulo="2. Informe Final de Vinculación (PDF)"
-                      descripcion="Informe técnico consolidado de resultados, beneficiarios y conclusiones del proyecto"
+                      titulo="2. Informe Final de Vinculación"
+                      descripcion="Informe técnico consolidado de resultados, beneficiarios y conclusiones del proyecto en formato PDF."
                       evidencia={informeFinal}
                       tipo="INFORME_FINAL"
                       estaSubiendo={subiendoDoc[`${asig.id}_INFORME_FINAL`] ?? false}
                       deshabilitadoPorFase={asig.faseActual === 'ASIGNACION'}
+                      deshabilitadoPorPeriodoInactivo={bloqueoCargaPeriodo}
                       alSeleccionarArchivo={(archivo) =>
                         manejarSubirArchivoDirecto(asig, 'INFORME_FINAL', archivo)
                       }
@@ -412,7 +422,9 @@ export function VistaProyectoEstudiante({
                         informeFinal &&
                         manejarDescarga(
                           e,
-                          informeFinal.urlArchivo,
+                          informeFinal.id
+                            ? `/evidencias-vcs/${informeFinal.id}/descargar`
+                            : informeFinal.urlArchivo,
                           informeFinal.nombreArchivo || 'Informe_Final.pdf'
                         )
                       }
@@ -457,7 +469,7 @@ export function VistaProyectoEstudiante({
                                   variant="secondary"
                                   className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-[10px] font-bold shrink-0 whitespace-nowrap"
                                 >
-                                  Acreditado y Emitido
+                                  Emitido
                                 </Badge>
                               ) : (
                                 <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -480,10 +492,10 @@ export function VistaProyectoEstudiante({
                             {(() => {
                               const nombreEstudiante = asig.nombreCompletoEstudiante || 'Estudiante';
                               const nombreCarrera = asig.nombreCarrera || 'Carrera';
-                              const nombreCertificado = `Certificado_VCS_${nombreEstudiante}_${nombreCarrera}.pdf`.replace(/\s+/g, '_');
-                              const urlCert = asig.urlCertificado
-                                ? asig.urlCertificado
-                                : `/api/proxy/asignaciones-proyectos-comunitarios/${asig.id}/certificado-horas/preview`;
+                              const nombreCertificado = `${nombreEstudiante} - Certificado VCS.pdf`;
+                              const urlCert = asig.id
+                                ? `/api/proxy/asignaciones-proyectos-comunitarios/${asig.id}/certificado-horas/preview`
+                                : (asig.urlCertificado || '');
 
                               return (
                                 <>
@@ -537,6 +549,7 @@ interface ItemDocumentoPortafolioProps {
   tipo: TipoDocumentoVcs;
   estaSubiendo: boolean;
   deshabilitadoPorFase?: boolean;
+  deshabilitadoPorPeriodoInactivo?: boolean;
   alSeleccionarArchivo: (archivo: File) => void;
   alDescargar: (e: React.MouseEvent) => void;
   referenciaInput: (el: HTMLInputElement | null) => void;
@@ -549,6 +562,7 @@ function ItemDocumentoPortafolio({
   tipo,
   estaSubiendo,
   deshabilitadoPorFase = false,
+  deshabilitadoPorPeriodoInactivo = false,
   alSeleccionarArchivo,
   alDescargar,
   referenciaInput,
@@ -584,12 +598,18 @@ function ItemDocumentoPortafolio({
               <span className="text-sm font-bold text-foreground">{titulo}</span>
 
               {/* Badge de Estado del Documento */}
-              {!tieneArchivo && !deshabilitadoPorFase && (
+              {!tieneArchivo && !deshabilitadoPorFase && !deshabilitadoPorPeriodoInactivo && (
                 <Badge variant="outline" className="text-[10px] text-muted-foreground">
                   Pendiente de entrega
                 </Badge>
               )}
-              {!tieneArchivo && deshabilitadoPorFase && (
+              {!tieneArchivo && deshabilitadoPorPeriodoInactivo && (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground border-muted-foreground/30">
+                  <Lock className="h-2.5 w-2.5 mr-1 opacity-70" />
+                  Periodo cerrado
+                </Badge>
+              )}
+              {!tieneArchivo && !deshabilitadoPorPeriodoInactivo && deshabilitadoPorFase && (
                 <Badge variant="outline" className="text-[10px] text-muted-foreground border-muted-foreground/30">
                   <Lock className="h-2.5 w-2.5 mr-1 opacity-70" />
                   No disponible (Fase Asignación)
@@ -608,7 +628,7 @@ function ItemDocumentoPortafolio({
                   variant="secondary"
                   className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-[10px] font-bold shrink-0 whitespace-nowrap"
                 >
-                  Aprobado por Tutor
+                  Aprobado
                 </Badge>
               )}
               {esRechazado && (
@@ -652,7 +672,7 @@ function ItemDocumentoPortafolio({
               <BotonPrevisualizarDocumento
                 titulo={titulo}
                 subtitulo="Documento oficial de Vinculación con la Sociedad • Universidad Central del Ecuador"
-                url={evidencia?.urlArchivo}
+                url={evidencia?.id ? `/evidencias-vcs/${evidencia.id}/preview` : evidencia?.urlArchivo}
                 nombreArchivo={`${tipo.toLowerCase()}.pdf`}
                 texto="Ver"
               />
@@ -670,7 +690,7 @@ function ItemDocumentoPortafolio({
           )}
 
           {/* Botón de subir solo si no tiene archivo, o resubir únicamente si está OBSERVADO */}
-          {!esAprobado && (
+          {!esAprobado && !deshabilitadoPorPeriodoInactivo && (
             deshabilitadoPorFase ? (
               <Button
                 size="sm"

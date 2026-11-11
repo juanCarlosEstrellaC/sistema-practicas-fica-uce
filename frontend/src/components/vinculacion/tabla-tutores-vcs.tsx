@@ -22,16 +22,17 @@ import { AvatarUsuario } from '@/components/comunes/avatar-usuario';
 interface TablaTutoresVcsProps {
   tutores: TutorResumenVcsDto[];
   proyectos?: ProyectoResumenDto[];
+  esInactivo?: boolean;
 }
 
-export function TablaTutoresVcs({ tutores, proyectos = [] }: TablaTutoresVcsProps) {
+export function TablaTutoresVcs({ tutores, proyectos = [], esInactivo = false }: TablaTutoresVcsProps) {
   const { usuario } = useAutenticacion();
   const [tutorAEditar, setTutorAEditar] = useState<TutorResumenVcsDto | null>(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [campoOrden, setCampoOrden] = useState<'nombre' | 'asignados' | 'proyectos'>('nombre');
   const [direccionOrden, setDireccionOrden] = useState<'asc' | 'desc'>('asc');
 
-  const puedeAsociar = tienePermiso(usuario?.rol, PERMISOS.TUTORES_ASOCIAR_PROYECTOS);
+  const puedeAsociar = !esInactivo && tienePermiso(usuario?.rol, PERMISOS.TUTORES_ASOCIAR_PROYECTOS);
 
   const abrirModalAsociacion = (tutor: TutorResumenVcsDto) => {
     setTutorAEditar(tutor);

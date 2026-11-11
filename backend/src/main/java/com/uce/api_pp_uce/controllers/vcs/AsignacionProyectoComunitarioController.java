@@ -22,10 +22,8 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
+import com.uce.api_pp_uce.common.RespuestaArchivoUtil;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -169,8 +167,12 @@ public class AsignacionProyectoComunitarioController {
 
     @PreAuthorize("hasRole('TUTOR_ACADEMICO')")
     @PatchMapping("/proyectos/{proyectoId}/iniciar")
-    public ResponseEntity<RespuestaApi<Integer>> iniciarProyectoGeneral(@PathVariable Long proyectoId) {
-        int actualizadas = asignacionProyectoComunitarioService.iniciarProyecto(proyectoId);
+    public ResponseEntity<RespuestaApi<Integer>> iniciarProyectoGeneral(
+            @PathVariable Long proyectoId,
+            @RequestParam(required = false) Long periodoId) {
+        int actualizadas = periodoId != null
+                ? asignacionProyectoComunitarioService.iniciarProyecto(proyectoId, periodoId)
+                : asignacionProyectoComunitarioService.iniciarProyecto(proyectoId);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyecto iniciado con éxito para " + actualizadas + " estudiante(s). Fase actualizada a Desarrollo.", actualizadas));
     }
 
@@ -201,7 +203,7 @@ public class AsignacionProyectoComunitarioController {
             @RequestParam(required = false) String subdecanoCorreo) {
         ArchivoDescargaDto descarga = asignacionProyectoComunitarioService.obtenerDescargaCertificadoHoras(
                 id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
-        return construirRespuestaPdf(descarga.contenido(), descarga.nombreArchivo());
+        return RespuestaArchivoUtil.previsualizar(descarga);
     }
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'ESTUDIANTE')")
@@ -230,12 +232,5 @@ public class AsignacionProyectoComunitarioController {
     public ResponseEntity<RespuestaApi<AsignacionProyectoComunitarioDto>> cancelarAsignacion(@PathVariable Long id) {
         AsignacionProyectoComunitarioDto cancelada = asignacionProyectoComunitarioService.cancelarAsignacion(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Asignación cancelada con éxito", cancelada));
-    }
-
-    private ResponseEntity<byte[]> construirRespuestaPdf(byte[] bytesPdf, String nombreArchivo) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition.inline().filename(nombreArchivo).build());
-        return new ResponseEntity<>(bytesPdf, headers, HttpStatus.OK);
     }
 }

@@ -47,6 +47,11 @@ export function TarjetaDocumentoPortafolioVcs({
   esDestacado = false,
   alSeleccionarParaDetalles,
 }: TarjetaDocumentoPortafolioVcsProps) {
+  const urlDescargaEfectiva =
+    documento.tipo !== 'CERTIFICADO_VCS' && documento.dbId
+      ? `/evidencias-vcs/${documento.dbId}/descargar`
+      : (documento.url || '');
+
   const manejarDescarga = async (e: React.MouseEvent, url: string, nombreArchivo: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -207,7 +212,7 @@ export function TarjetaDocumentoPortafolioVcs({
                       onClick={(e) =>
                         manejarDescarga(
                           e,
-                          documento.url!,
+                          urlDescargaEfectiva,
                           documento.archivoNombre || `${documento.id}.pdf`
                         )
                       }

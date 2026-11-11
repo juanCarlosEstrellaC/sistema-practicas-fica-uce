@@ -162,4 +162,77 @@ describe('ModalEvidenciasVcs', () => {
         expect(botonPendiente).toBeInTheDocument();
         expect(botonPendiente).toBeDisabled();
     });
+
+    it('no debe emparejar ni aprobar ambos documentos cuando el nombre del archivo contiene el tipo del otro documento', async () => {
+        const evidenciaInforme = {
+            id: 2,
+            asignacionId: 100,
+            tipoDocumento: 'INFORME_FINAL',
+            nombreArchivo: 'Informe Final - bitacora.pdf',
+            urlArchivo: '/evidencias-vcs/2/preview',
+            horasReportadas: 40,
+            estadoTutor: 'PENDIENTE',
+            fechaSubida: '2026-11-02T12:00:00',
+        };
+        const evidenciaBitacora = {
+            id: 1,
+            asignacionId: 100,
+            tipoDocumento: 'BITACORA',
+            nombreArchivo: 'Bitácora de Actividades - informe_final.pdf',
+            urlArchivo: '/evidencias-vcs/1/preview',
+            horasReportadas: 40,
+            estadoTutor: 'PENDIENTE',
+            fechaSubida: '2026-11-02T10:00:00',
+        };
+
+        vi.mocked(accionesEvidencia.obtenerEvidenciasPorAsignacionAccion)
+            .mockResolvedValueOnce({
+                exito: true,
+                mensaje: 'OK',
+                data: [evidenciaInforme, evidenciaBitacora] as any,
+            })
+            .mockResolvedValueOnce({
+                exito: true,
+                mensaje: 'OK',
+                data: [
+                    evidenciaInforme,
+                    { ...evidenciaBitacora, estadoTutor: 'APROBADO' },
+                ] as any,
+            });
+
+        vi.mocked(accionesEvidencia.revisarEvidenciaTutorAccion).mockResolvedValue({
+            exito: true,
+            mensaje: 'OK',
+            data: { ...evidenciaBitacora, estadoTutor: 'APROBADO' } as any,
+        });
+
+        render(
+            <ModalEvidenciasVcs
+                abierto={true}
+                abrirModal={vi.fn()}
+                asignacion={asignacionMock}
+            />
+        );
+
+        const botonAprobar = await screen.findByRole('button', {
+            name: /Validar y Aprobar/i,
+        });
+        fireEvent.click(botonAprobar);
+
+        await waitFor(() => {
+            expect(accionesEvidencia.revisarEvidenciaTutorAccion).toHaveBeenCalledTimes(1);
+            expect(accionesEvidencia.revisarEvidenciaTutorAccion).toHaveBeenCalledWith(1, {
+                estadoTutor: 'APROBADO',
+                observaciones: '',
+            });
+        });
+
+        await waitFor(() => {
+            expect(screen.getAllByText('Aprobado')).toHaveLength(1);
+            expect(screen.getAllByText('Pendiente').length).toBeGreaterThanOrEqual(1);
+            expect(
+                screen.getByRole('button', { name: /Pendiente de aprobar todos los documentos/i })
+            ).toBeDisabled();
+        });
+    });
 });

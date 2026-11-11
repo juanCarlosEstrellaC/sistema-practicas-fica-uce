@@ -29,6 +29,8 @@ public interface ReporteProyectoVcsRepository extends JpaRepository<ReporteProye
               AND (CAST(:periodoId AS long) IS NULL OR per.id = :periodoId)
               AND (CAST(:tipo AS string) IS NULL OR r.tipo = :tipo)
               AND (CAST(:estadoSubdecanato AS string) IS NULL OR r.estadoSubdecanato = :estadoSubdecanato)
+              AND (CAST(:carreraId AS integer) IS NULL OR p.carrera.id = :carreraId)
+              AND (CAST(:tutorId AS long) IS NULL OR p.tutorAcademico.id = :tutorId)
         """,
         countQuery = """
             SELECT COUNT(r)
@@ -42,6 +44,8 @@ public interface ReporteProyectoVcsRepository extends JpaRepository<ReporteProye
               AND (CAST(:periodoId AS long) IS NULL OR per.id = :periodoId)
               AND (CAST(:tipo AS string) IS NULL OR r.tipo = :tipo)
               AND (CAST(:estadoSubdecanato AS string) IS NULL OR r.estadoSubdecanato = :estadoSubdecanato)
+              AND (CAST(:carreraId AS integer) IS NULL OR p.carrera.id = :carreraId)
+              AND (CAST(:tutorId AS long) IS NULL OR p.tutorAcademico.id = :tutorId)
         """
     )
     Page<ReporteProyectoVcs> buscarConFiltros(
@@ -50,12 +54,29 @@ public interface ReporteProyectoVcsRepository extends JpaRepository<ReporteProye
         @Param("periodoId") Long periodoId,
         @Param("tipo") TipoReporteProyectoVcs tipo,
         @Param("estadoSubdecanato") EstadoRevisionVcs estadoSubdecanato,
+        @Param("carreraId") Integer carreraId,
+        @Param("tutorId") Long tutorId,
         Pageable pageable
     );
 
+    default Page<ReporteProyectoVcs> buscarConFiltros(
+        String busqueda,
+        Long proyectoId,
+        Long periodoId,
+        TipoReporteProyectoVcs tipo,
+        EstadoRevisionVcs estadoSubdecanato,
+        Pageable pageable
+    ) {
+        return buscarConFiltros(busqueda, proyectoId, periodoId, tipo, estadoSubdecanato, null, null, pageable);
+    }
+
     List<ReporteProyectoVcs> findByProyectoIdOrderByFechaSubidaDesc(Long proyectoId);
 
+    List<ReporteProyectoVcs> findByProyectoIdAndPeriodoAcademicoIdOrderByFechaSubidaDesc(Long proyectoId, Long periodoAcademicoId);
+
     List<ReporteProyectoVcs> findByProyectoIdAndTipo(Long proyectoId, TipoReporteProyectoVcs tipo);
+
+    List<ReporteProyectoVcs> findByProyectoIdAndPeriodoAcademicoIdAndTipo(Long proyectoId, Long periodoAcademicoId, TipoReporteProyectoVcs tipo);
 
     boolean existsByProyectoIdAndTipoAndEstadoSubdecanato(Long proyectoId, TipoReporteProyectoVcs tipo, EstadoRevisionVcs estadoSubdecanato);
 }

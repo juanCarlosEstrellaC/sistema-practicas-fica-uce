@@ -7,6 +7,7 @@ import com.uce.api_pp_uce.dtos.vcs.EvidenciaVcsNuevoDto;
 import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.entities.vcs.AsignacionProyectoComunitario;
 import com.uce.api_pp_uce.entities.vcs.EvidenciaAsignacionVcs;
+import com.uce.api_pp_uce.enums.EstadoPeriodo;
 import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.enums.TipoNotificacion;
 import com.uce.api_pp_uce.enums.vcs.EstadoRevisionVcs;
@@ -18,6 +19,7 @@ import com.uce.api_pp_uce.mapeadores.vcs.EvidenciaAsignacionVcsMapeador;
 import com.uce.api_pp_uce.repositories.vcs.AsignacionProyectoComunitarioRepository;
 import com.uce.api_pp_uce.repositories.vcs.EvidenciaAsignacionVcsRepository;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.EvidenciaAsignacionVcsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,7 +49,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
     private final AsignacionProyectoComunitarioRepository asignacionProyectoComunitarioRepository;
     private final NotificacionService notificacionService;
     private final EvidenciaAsignacionVcsMapeador evidenciaAsignacionVcsMapeador;
-    private final com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     private static final Set<RolUsuario> ROLES_ADMINISTRATIVOS = Set.of(
             RolUsuario.SUBDECANO,
@@ -69,6 +71,10 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
         }
         AsignacionProyectoComunitario asignacion = asignacionProyectoComunitarioRepository.findById(dto.asignacionId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación no encontrada con ID: " + dto.asignacionId()));
+
+        if (asignacion.getPeriodoAcademico() != null && asignacion.getPeriodoAcademico().getEstado() == EstadoPeriodo.INACTIVO) {
+            throw new NegocioException("No se pueden subir evidencias en un periodo académico inactivo");
+        }
 
         if (asignacion.getFaseActual() == FaseActualAsignacion.ASIGNACION) {
             throw new NegocioException("No se pueden subir evidencias mientras el proyecto no haya iniciado la fase de Desarrollo");
@@ -174,13 +180,18 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
         EvidenciaAsignacionVcs evidencia = evidenciaAsignacionVcsRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Evidencia no encontrada con ID: " + id));
 
+        AsignacionProyectoComunitario asignacion = evidencia.getAsignacion();
+        if (asignacion != null && asignacion.getPeriodoAcademico() != null
+                && asignacion.getPeriodoAcademico().getEstado() == EstadoPeriodo.INACTIVO) {
+            throw new NegocioException("No se pueden revisar evidencias pertenecientes a un periodo académico inactivo");
+        }
+
         evidencia.setEstadoTutor(dto.estadoTutor());
         evidencia.setObservacionesTutor(dto.observaciones());
         evidencia.setFechaRevisionTutor(LocalDateTime.now());
 
         EvidenciaAsignacionVcs evidenciaActualizada = evidenciaAsignacionVcsRepository.save(evidencia);
 
-        AsignacionProyectoComunitario asignacion = evidencia.getAsignacion();
         if (asignacion != null) {
             List<EvidenciaAsignacionVcs> todasEvidencias = evidenciaAsignacionVcsRepository
                     .findByAsignacionIdOrderByFechaSubidaDesc(asignacion.getId());
@@ -233,7 +244,7 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
             return null;
         }
         EvidenciaVcsDto dto = evidenciaAsignacionVcsMapeador.aDto(e);
-        if (e.getId() != null) {
+        if (e.getUrlArchivo() != null && !e.getUrlArchivo().isBlank() && e.getId() != null) {
             return new EvidenciaVcsDto(
                     dto.id(),
                     dto.asignacionId(),
@@ -311,6 +322,9 @@ public class EvidenciaAsignacionVcsServiceImpl implements EvidenciaAsignacionVcs
 
         Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
                 .toAbsolutePath().normalize();
+        if (!Files.exists(carpetaBase) && Files.exists(Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos"))) {
+            carpetaBase = Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos").toAbsolutePath().normalize();
+        }
         Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
 
         if (!filePath.startsWith(carpetaBase)) {

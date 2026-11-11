@@ -35,7 +35,7 @@ describe('CelebracionConfetiVcs (Componente UI)', () => {
             />
         );
 
-        expect(screen.getByText(/Culminación Oficial de Vinculación con la Sociedad/i)).toBeInTheDocument();
+        expect(screen.getByText(/¡Felicitaciones! Has completado el requisito de Vinculación con la Sociedad/i)).toBeInTheDocument();
         expect(screen.getAllByText(/160/i).length).toBeGreaterThan(0);
     });
 

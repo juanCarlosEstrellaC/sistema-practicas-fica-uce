@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Award, GraduationCap, Sparkles, CheckCircle2, X } from 'lucide-react';
+import { Award, GraduationCap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CelebracionConfetiVcsProps {
@@ -99,16 +99,9 @@ export function CelebracionConfetiVcs({
                 </div>
 
                 <div className="space-y-1.5 pr-6">
-                    <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                            {esTotal ? 'Requisito de Graduación Culminado' : 'Aprobación Subdecanato'}
-                        </span>
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    </div>
-
                     <h3 className="text-base font-bold tracking-tight text-foreground">
                         {esTotal
-                            ? 'Culminación Oficial de Vinculación con la Sociedad'
+                            ? '¡Felicitaciones! Has completado el requisito de Vinculación con la Sociedad'
                             : 'Acreditación Oficial de Horas Comunitarias'}
                     </h3>
 
@@ -127,15 +120,6 @@ export function CelebracionConfetiVcs({
                             </span>
                         )}
                     </p>
-
-                    {horasAcumuladas !== undefined && horasRequeridas !== undefined && (
-                        <div className="pt-1 flex items-center gap-2 text-xs font-medium text-foreground">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>
-                                Progreso acumulado en carrera: <strong className="text-primary">{horasAcumuladas} / {horasRequeridas} horas</strong> ({Math.min(100, Math.round((horasAcumuladas / (horasRequeridas || 1)) * 100))}%)
-                            </span>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

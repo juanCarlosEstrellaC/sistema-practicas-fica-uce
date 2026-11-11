@@ -79,7 +79,8 @@ describe('Validacion de horas de VCS antes y despues de emision de certificado',
     // Debe haber 2 menciones de 80h: Horas Asignadas y Horas Aprobadas
     expect(screen.getAllByText('80h')).toHaveLength(2);
     expect(screen.getByText('Acreditadas por Subdecanato')).toBeInTheDocument();
-    expect(screen.getByText('Acreditado y Emitido')).toBeInTheDocument();
+    expect(screen.getByText('Emitido')).toBeInTheDocument();
+    expect(screen.getByText('Ver Certificado')).toBeInTheDocument();
   });
 
   it('en VistaProgresoGeneralVcs no debe contabilizar horas validadas si falta emision de certificado', () => {
@@ -97,9 +98,27 @@ describe('Validacion de horas de VCS antes y despues de emision de certificado',
   it('en VistaProgresoGeneralVcs debe contabilizar 80 horas validadas cuando está aprobado', () => {
     render(<VistaProgresoGeneralVcs asignaciones={[asignacionAprobadaConCertificado]} />);
 
-    // Debe mostrar 80 horas validadas
-    expect(screen.getByText('80 horas')).toBeInTheDocument();
-    // Y el certificado debe estar disponible
-    expect(screen.getByText('Certificado de Vinculación')).toBeInTheDocument();
+    // Debe mostrar 80 horas en Horas Validadas y 80 horas en Horas Restantes
+    expect(screen.getAllByText('80 horas')).toHaveLength(2);
+    expect(screen.getByText('50% (80 / 160 h)')).toBeInTheDocument();
+  });
+
+  it('debe bloquear la subida de evidencias cuando el periodo académico está inactivo', () => {
+    const asignacionEnDesarrollo: AsignacionProyectoDto = {
+      ...asignacionEnValidacion,
+      faseActual: 'DESARROLLO',
+      documentosValidados: false,
+      periodoAcademicoId: 99,
+    };
+
+    render(
+      <VistaProyectoEstudiante
+        asignaciones={[asignacionEnDesarrollo]}
+        periodosInactivosIds={[99]}
+      />
+    );
+
+    expect(screen.getAllByText('Periodo cerrado')).toHaveLength(2);
+    expect(screen.queryByText('Subir Archivo')).not.toBeInTheDocument();
   });
 });

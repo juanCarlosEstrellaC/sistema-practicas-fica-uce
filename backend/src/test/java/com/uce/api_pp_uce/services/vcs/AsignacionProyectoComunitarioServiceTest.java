@@ -37,12 +37,14 @@ import com.uce.api_pp_uce.enums.vcs.EstadoRevisionVcs;
 import com.uce.api_pp_uce.exportadores.vcs.CertificadoHorasVcsPdfExportador;
 import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.impl.AsignacionProyectoComunitarioServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.access.AccessDeniedException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -102,7 +104,7 @@ class AsignacionProyectoComunitarioServiceTest {
     private EvidenciaAsignacionVcsRepository evidenciaAsignacionVcsRepository;
 
     @Mock
-    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+    private UsuarioAutenticadoService usuarioAutenticadoService;
 
     @InjectMocks
     private AsignacionProyectoComunitarioServiceImpl asignacionProyectoComunitarioService;
@@ -786,5 +788,107 @@ class AsignacionProyectoComunitarioServiceTest {
         when(asignacionProyectoComunitarioRepository.findById(1000L)).thenReturn(Optional.of(asignacionMock));
 
         assertThrows(NegocioException.class, () -> asignacionProyectoComunitarioService.enviarASubdecanato(1000L));
+    }
+
+    @Test
+    @DisplayName("asignarEstudiantesMasivo - Cuando el proyecto ya está iniciado, el nuevo estudiante entra directamente en DESARROLLO")
+    void asignarEstudiantesMasivo_ProyectoYaIniciado_CreaEnDesarrollo() {
+        AsignacionProyectoComunitarioMasivoDto dto = new AsignacionProyectoComunitarioMasivoDto(
+                List.of(50L),
+                10L,
+                80,
+                1,
+                100L
+        );
+
+        when(carreraRepository.findById(1)).thenReturn(Optional.of(carreraMock));
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(periodoAcademicoRepository.findById(100L)).thenReturn(Optional.of(periodoMock));
+        when(asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndPeriodoAcademicoIdAndFaseActualNot(
+                10L, 100L, FaseActualAsignacion.ASIGNACION))
+                .thenReturn(true);
+        when(usuarioRepository.findById(50L)).thenReturn(Optional.of(estudianteMock));
+        when(procesoVinculacionRepository.findByEstudianteIdAndCarreraId(50L, 1)).thenReturn(Optional.of(procesoMock));
+        when(asignacionProyectoComunitarioRepository.existsByProcesoVinculacionIdAndPeriodoAcademicoIdAndEstadoNot(
+                procesoMock.getId(), 100L, EstadoAsignacionVcs.CANCELADO)).thenReturn(false);
+        when(asignacionProyectoComunitarioRepository.save(any(AsignacionProyectoComunitario.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        List<AsignacionProyectoComunitarioDto> resultado = asignacionProyectoComunitarioService.asignarEstudiantesMasivo(dto);
+
+        assertNotNull(resultado);
+        assertEquals(1, resultado.size());
+
+        ArgumentCaptor<AsignacionProyectoComunitario> captor = ArgumentCaptor.forClass(AsignacionProyectoComunitario.class);
+        verify(asignacionProyectoComunitarioRepository).save(captor.capture());
+        assertEquals(FaseActualAsignacion.DESARROLLO, captor.getValue().getFaseActual());
+
+        verify(notificacionService).enviar(
+                eq(50L),
+                eq("Asignacion a Proyecto Comunitario"),
+                contains("fase de Desarrollo"),
+                eq(TipoNotificacion.INFORMACION),
+                eq("/dashboard/vinculacion/mi-proyecto")
+        );
+    }
+
+    @Test
+    @DisplayName("actualizarAsignacion - Cuando se cambia a un proyecto ya iniciado, la asignación pasa a DESARROLLO")
+    void actualizarAsignacion_HaciaProyectoIniciado_PasaADesarrollo() {
+        ProyectoComunitario nuevoProyecto = new ProyectoComunitario();
+        nuevoProyecto.setId(11L);
+        nuevoProyecto.setNombre("Proyecto En Curso");
+        nuevoProyecto.setCarrera(carreraMock);
+
+        AsignacionProyectoComunitarioActualizarDto dto = new AsignacionProyectoComunitarioActualizarDto(11L, 80);
+
+        when(asignacionProyectoComunitarioRepository.findById(1000L)).thenReturn(Optional.of(asignacionMock));
+        when(proyectoComunitarioRepository.findById(11L)).thenReturn(Optional.of(nuevoProyecto));
+        when(asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndPeriodoAcademicoIdAndFaseActualNot(
+                11L, 100L, FaseActualAsignacion.ASIGNACION))
+                .thenReturn(true);
+        when(asignacionProyectoComunitarioRepository.save(asignacionMock)).thenReturn(asignacionMock);
+
+        asignacionProyectoComunitarioService.actualizarAsignacion(1000L, dto);
+
+        assertEquals(FaseActualAsignacion.DESARROLLO, asignacionMock.getFaseActual());
+        verify(notificacionService).enviar(
+                eq(50L),
+                eq("Actualizacion de asignacion a proyecto comunitario"),
+                contains("fase de Desarrollo"),
+                eq(TipoNotificacion.INFORMACION),
+                eq("/dashboard/vinculacion/mi-proyecto")
+        );
+    }
+
+    @Test
+    @DisplayName("iniciarDesarrollo - Inicia todas las asignaciones pendientes del proyecto comunitario en el periodo")
+    void iniciarDesarrollo_IniciaTodasLasAsignacionesDelProyecto() {
+        when(asignacionProyectoComunitarioRepository.findById(1000L)).thenReturn(Optional.of(asignacionMock));
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(periodoAcademicoRepository.findById(100L)).thenReturn(Optional.of(periodoMock));
+        when(asignacionProyectoComunitarioRepository.findByProyectoComunitarioIdAndPeriodoAcademicoId(10L, 100L))
+                .thenReturn(List.of(asignacionMock));
+        when(asignacionProyectoComunitarioRepository.save(asignacionMock)).thenReturn(asignacionMock);
+
+        AsignacionProyectoComunitarioDto resultado = asignacionProyectoComunitarioService.iniciarDesarrollo(1000L);
+
+        assertNotNull(resultado);
+        assertEquals(FaseActualAsignacion.DESARROLLO, asignacionMock.getFaseActual());
+        verify(asignacionProyectoComunitarioRepository).save(asignacionMock);
+    }
+
+    @Test
+    @DisplayName("iniciarProyecto - Lanza NegocioException si el periodo académico está INACTIVO")
+    void iniciarProyecto_PeriodoInactivo_LanzaExcepcion() {
+        periodoMock.setEstado(EstadoPeriodo.INACTIVO);
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(periodoAcademicoRepository.findById(100L)).thenReturn(Optional.of(periodoMock));
+
+        NegocioException ex = assertThrows(NegocioException.class, () ->
+                asignacionProyectoComunitarioService.iniciarProyecto(10L, 100L));
+
+        assertTrue(ex.getMessage().contains("periodo académico inactivo"));
+        verify(asignacionProyectoComunitarioRepository, never()).save(any());
     }
 }

@@ -9,9 +9,17 @@ import org.springframework.data.domain.Pageable;
 
 public interface ProyectoComunitarioService {
 
-    Page<ProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId, EstadoProyecto estado, Pageable pageable);
+    Page<ProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId, EstadoProyecto estado, Long periodoId, Pageable pageable);
 
-    ProyectoComunitarioDto buscarPorId(Long id);
+    default Page<ProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId, EstadoProyecto estado, Pageable pageable) {
+        return buscarConFiltros(busqueda, carreraId, tutorId, estado, null, pageable);
+    }
+
+    ProyectoComunitarioDto buscarPorId(Long id, Long periodoId);
+
+    default ProyectoComunitarioDto buscarPorId(Long id) {
+        return buscarPorId(id, null);
+    }
 
     ProyectoComunitarioDto crearProyecto(ProyectoComunitarioNuevoDto dto);
 

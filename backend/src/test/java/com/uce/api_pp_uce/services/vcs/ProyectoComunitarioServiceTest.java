@@ -6,16 +6,20 @@ import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
 import com.uce.api_pp_uce.entities.Carrera;
 import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.entities.vcs.ProyectoComunitario;
+import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.enums.vcs.EstadoProyecto;
+import com.uce.api_pp_uce.enums.vcs.FaseActualAsignacion;
 import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.excepciones.RecursoNoEncontradoException;
 import com.uce.api_pp_uce.mapeadores.vcs.ProyectoComunitarioMapeador;
 import com.uce.api_pp_uce.repositories.CarreraRepository;
+import com.uce.api_pp_uce.repositories.PeriodoAcademicoRepository;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
 import com.uce.api_pp_uce.repositories.vcs.AsignacionProyectoComunitarioRepository;
 import com.uce.api_pp_uce.repositories.vcs.ProyectoComunitarioRepository;
 import com.uce.api_pp_uce.services.vcs.impl.ProyectoComunitarioServiceImpl;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,6 +57,9 @@ class ProyectoComunitarioServiceTest {
     private UsuarioRepository usuarioRepository;
 
     @Mock
+    private PeriodoAcademicoRepository periodoAcademicoRepository;
+
+    @Mock
     private AsignacionProyectoComunitarioRepository asignacionProyectoComunitarioRepository;
 
     @Mock
@@ -61,7 +69,7 @@ class ProyectoComunitarioServiceTest {
     private NotificacionService notificacionService;
 
     @Mock
-    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+    private UsuarioAutenticadoService usuarioAutenticadoService;
 
     @InjectMocks
     private ProyectoComunitarioServiceImpl proyectoComunitarioService;
@@ -149,7 +157,7 @@ class ProyectoComunitarioServiceTest {
     void buscarPorId_ComoDirector_DeniegaAccesoSiEsDeOtraCarrera() {
         Usuario director = new Usuario();
         director.setId(99L);
-        director.setRol(com.uce.api_pp_uce.enums.RolUsuario.DIRECTOR_CARRERA);
+        director.setRol(RolUsuario.DIRECTOR_CARRERA);
         Carrera otraCarrera = new Carrera();
         otraCarrera.setId(999);
         director.setCarrera(otraCarrera);
@@ -157,7 +165,7 @@ class ProyectoComunitarioServiceTest {
         when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
         when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(director);
 
-        assertThrows(org.springframework.security.access.AccessDeniedException.class, () ->
+        assertThrows(AccessDeniedException.class, () ->
                 proyectoComunitarioService.buscarPorId(10L));
     }
 
@@ -166,7 +174,7 @@ class ProyectoComunitarioServiceTest {
     void buscarPorId_ComoTutor_DeniegaAccesoSiEsDeOtroTutor() {
         Usuario tutorActual = new Usuario();
         tutorActual.setId(99L);
-        tutorActual.setRol(com.uce.api_pp_uce.enums.RolUsuario.TUTOR_ACADEMICO);
+        tutorActual.setRol(RolUsuario.TUTOR_ACADEMICO);
 
         Usuario otroTutor = new Usuario();
         otroTutor.setId(88L);
@@ -175,7 +183,7 @@ class ProyectoComunitarioServiceTest {
         when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
         when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutorActual);
 
-        assertThrows(org.springframework.security.access.AccessDeniedException.class, () ->
+        assertThrows(AccessDeniedException.class, () ->
                 proyectoComunitarioService.buscarPorId(10L));
     }
 
@@ -368,5 +376,37 @@ class ProyectoComunitarioServiceTest {
 
         assertThrows(RecursoNoEncontradoException.class, () -> proyectoComunitarioService.eliminarProyecto(99L));
         verify(proyectoComunitarioRepository, never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Marca proyecto como iniciado cuando tiene asignaciones que superaron ASIGNACION")
+    void buscarPorId_ProyectoConAsignacionEnDesarrollo_MarcaIniciadoTrue() {
+        ProyectoComunitarioDto dtoIniciado = new ProyectoComunitarioDto(
+                10L,
+                "Alfabetización Digital",
+                "Capacitación TIC",
+                1,
+                "Ingeniería en Sistemas",
+                10L,
+                "Carlos Pérez",
+                "carlos.perez@uce.edu.ec",
+                EstadoProyecto.ACTIVO,
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2027, 2, 28),
+                "/archivos/vinculacion/proyecto.pdf",
+                "proyecto.pdf",
+                LocalDateTime.now(),
+                true
+        );
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndFaseActualNot(10L, FaseActualAsignacion.ASIGNACION))
+                .thenReturn(true);
+        when(proyectoComunitarioMapeador.aDto(proyectoMock, true)).thenReturn(dtoIniciado);
+
+        ProyectoComunitarioDto resultado = proyectoComunitarioService.buscarPorId(10L);
+
+        assertTrue(resultado.iniciado());
+        verify(asignacionProyectoComunitarioRepository).existsByProyectoComunitarioIdAndFaseActualNot(10L, FaseActualAsignacion.ASIGNACION);
     }
 }

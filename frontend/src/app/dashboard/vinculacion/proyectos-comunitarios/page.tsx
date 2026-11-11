@@ -1,7 +1,9 @@
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { BannerPeriodoInactivo } from '@/components/banner-periodo-inactivo';
 import { obtenerProyectosComunitariosAccion } from '@/lib/acciones/vcs/proyecto-comunitario.acciones';
 import { obtenerCarrerasAccion } from '@/lib/acciones/carrera.acciones';
+import { resolverPeriodoAcademicoServidor } from '@/lib/acciones/periodo-academico.acciones';
 import { obtenerUsuarioServidor } from '@/lib/acciones/cliente-servidor';
 import { FiltrosProyectos } from '@/components/vinculacion/filtros-proyectos';
 import { TablaProyectos } from '@/components/vinculacion/tabla-proyectos';
@@ -14,6 +16,7 @@ export const metadata: Metadata = {
 
 interface PaginaVinculacionProps {
   searchParams: Promise<{
+    periodoId?: string;
     busqueda?: string;
     carreraId?: string;
     estado?: string;
@@ -33,6 +36,12 @@ export default async function PaginaVinculacionProyectos({ searchParams }: Pagin
     redirect('/dashboard/vinculacion/mi-proyecto');
   }
   const params = await searchParams;
+
+  const { periodoActual, periodoAcademicoId, esInactivo } =
+    await resolverPeriodoAcademicoServidor(
+      params.periodoId,
+      '/dashboard/vinculacion/proyectos-comunitarios'
+    );
 
   const esSubdecano = usuario?.rol === 'SUBDECANO';
   const esTutor = usuario?.rol === 'TUTOR_ACADEMICO';
@@ -57,6 +66,7 @@ export default async function PaginaVinculacionProyectos({ searchParams }: Pagin
       carreraId: carreraIdFiltro,
       tutorId: tutorIdFiltro,
       estado,
+      periodoId: periodoAcademicoId,
       busqueda,
       sort,
     }),
@@ -73,9 +83,16 @@ export default async function PaginaVinculacionProyectos({ searchParams }: Pagin
           Gestión de Proyectos Comunitarios
         </h4>
         <p className="text-sm text-muted-foreground max-w-3xl">
-          Aquí podrá gestionar los proyectos comunitarios de vinculación con la sociedad.
+          Aquí podrá gestionar los proyectos comunitarios de vinculación con la sociedad y sus informes del periodo {periodoActual ? `(${periodoActual.nombre})` : ''}.
         </p>
       </div>
+
+      {esInactivo && (
+        <BannerPeriodoInactivo
+          nombrePeriodo={periodoActual?.nombre}
+          mensaje="El periodo académico seleccionado se encuentra inactivo. El inicio de proyectos y la carga o revisión de informes del periodo están deshabilitados (modo de solo lectura)."
+        />
+      )}
 
       {/* Filtros Paginados por URL */}
       <FiltrosProyectos carreras={listaCarreras} />
@@ -84,6 +101,9 @@ export default async function PaginaVinculacionProyectos({ searchParams }: Pagin
       <TablaProyectos
         paginaProyectos={paginaProyectos}
         carreras={listaCarreras}
+        periodoId={periodoAcademicoId}
+        nombrePeriodo={periodoActual?.nombre}
+        esPeriodoInactivo={esInactivo}
       />
     </div>
   );

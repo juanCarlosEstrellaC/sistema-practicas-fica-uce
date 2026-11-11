@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.services.vcs;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ReporteProyectoDto;
 import com.uce.api_pp_uce.dtos.vcs.ReporteProyectoNuevoDto;
 import com.uce.api_pp_uce.dtos.vcs.ReporteRevisionSubdecanatoDto;
@@ -26,9 +27,17 @@ public interface ReporteProyectoVcsService {
             Pageable pageable
     );
 
-    List<ReporteProyectoDto> listarPorProyecto(Long proyectoId);
+    List<ReporteProyectoDto> listarPorProyecto(Long proyectoId, Long periodoId);
+
+    default List<ReporteProyectoDto> listarPorProyecto(Long proyectoId) {
+        return listarPorProyecto(proyectoId, null);
+    }
 
     ReporteProyectoDto revisarReporteSubdecanato(Long id, ReporteRevisionSubdecanatoDto dto);
 
     void eliminarReporte(Long id);
+
+    ArchivoDescargaDto obtenerReporteDescarga(Long id);
+
+    ArchivoDescargaDto obtenerReporteDescarga(Long id, Usuario usuarioAutenticado);
 }

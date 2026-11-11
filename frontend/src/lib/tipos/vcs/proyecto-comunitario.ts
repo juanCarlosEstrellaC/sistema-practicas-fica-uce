@@ -46,6 +46,7 @@ export interface FiltrosProyectoComunitario {
   carreraId?: number;
   tutorId?: number;
   estado?: EstadoProyectoComunitario;
+  periodoId?: number;
   page?: number;
   size?: number;
   sort?: string;

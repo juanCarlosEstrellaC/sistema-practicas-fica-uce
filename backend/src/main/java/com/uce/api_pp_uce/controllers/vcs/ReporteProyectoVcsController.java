@@ -1,6 +1,8 @@
 package com.uce.api_pp_uce.controllers.vcs;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.common.RespuestaArchivoUtil;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ReporteProyectoDto;
 import com.uce.api_pp_uce.dtos.vcs.ReporteProyectoNuevoDto;
 import com.uce.api_pp_uce.dtos.vcs.ReporteRevisionSubdecanatoDto;
@@ -64,8 +66,12 @@ public class ReporteProyectoVcsController {
 
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
     @GetMapping("/proyecto/{proyectoId}")
-    public ResponseEntity<RespuestaApi<List<ReporteProyectoDto>>> listarPorProyecto(@PathVariable Long proyectoId) {
-        List<ReporteProyectoDto> reportes = reporteProyectoVcsService.listarPorProyecto(proyectoId);
+    public ResponseEntity<RespuestaApi<List<ReporteProyectoDto>>> listarPorProyecto(
+            @PathVariable Long proyectoId,
+            @RequestParam(required = false) Long periodoId) {
+        List<ReporteProyectoDto> reportes = periodoId != null
+                ? reporteProyectoVcsService.listarPorProyecto(proyectoId, periodoId)
+                : reporteProyectoVcsService.listarPorProyecto(proyectoId);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Reportes del proyecto obtenidos con éxito", reportes));
     }
 
@@ -92,5 +98,19 @@ public class ReporteProyectoVcsController {
     public ResponseEntity<RespuestaApi<Void>> eliminarReporte(@PathVariable Long id) {
         reporteProyectoVcsService.eliminarReporte(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Reporte eliminado con éxito", null));
+    }
+
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<byte[]> previsualizarReporte(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = reporteProyectoVcsService.obtenerReporteDescarga(id);
+        return RespuestaArchivoUtil.previsualizar(descarga);
+    }
+
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO')")
+    @GetMapping("/{id}/descargar")
+    public ResponseEntity<byte[]> descargarReporte(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = reporteProyectoVcsService.obtenerReporteDescarga(id);
+        return RespuestaArchivoUtil.descargar(descarga);
     }
 }

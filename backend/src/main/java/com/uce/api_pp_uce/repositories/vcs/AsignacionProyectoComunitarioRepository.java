@@ -27,6 +27,11 @@ public interface AsignacionProyectoComunitarioRepository extends JpaRepository<A
 
     boolean existsByProyectoComunitarioIdAndFaseActual(Long proyectoId, FaseActualAsignacion faseActual);
 
+    boolean existsByProyectoComunitarioIdAndFaseActualNot(Long proyectoId, FaseActualAsignacion faseActual);
+
+    boolean existsByProyectoComunitarioIdAndPeriodoAcademicoIdAndFaseActualNot(
+            Long proyectoId, Long periodoAcademicoId, FaseActualAsignacion faseActual);
+
     boolean existsByProyectoComunitarioIdAndEstado(Long proyectoId, EstadoAsignacionVcs estado);
 
     // Listado de asignaciones con paginacion y filtros
@@ -137,4 +142,20 @@ public interface AsignacionProyectoComunitarioRepository extends JpaRepository<A
         ORDER BY a.fechaCreacion DESC
     """)
     List<AsignacionProyectoComunitario> findByProyectoComunitarioId(@Param("proyectoId") Long proyectoId);
+
+    @Query("""
+        SELECT a FROM AsignacionProyectoComunitario a
+        LEFT JOIN FETCH a.procesoVinculacion pv
+        LEFT JOIN FETCH pv.carrera pvc
+        LEFT JOIN FETCH a.proyectoComunitario pc
+        LEFT JOIN FETCH pv.estudiante e
+        LEFT JOIN FETCH pc.tutorAcademico ta
+        LEFT JOIN FETCH a.periodoAcademico per
+        WHERE pc.id = :proyectoId
+          AND per.id = :periodoId
+        ORDER BY a.fechaCreacion DESC
+    """)
+    List<AsignacionProyectoComunitario> findByProyectoComunitarioIdAndPeriodoAcademicoId(
+            @Param("proyectoId") Long proyectoId,
+            @Param("periodoId") Long periodoId);
 }

@@ -346,6 +346,11 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
             throw new NegocioException("Las horas asignadas exceden las horas disponibles de la carrera");
         }
 
+        boolean proyectoIniciado = estaProyectoIniciadoEnPeriodo(proyectoComunitario.getId(), periodoAcademico.getId());
+        FaseActualAsignacion faseInicial = proyectoIniciado
+                ? FaseActualAsignacion.DESARROLLO
+                : FaseActualAsignacion.ASIGNACION;
+
         List<AsignacionProyectoComunitario> asignaciones = new ArrayList<>();
 
         // Valido estudiantes:
@@ -401,16 +406,19 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
             asignacion.setHorasCompletadas(0);
             asignacion.setFechaInicio(LocalDate.now());
             asignacion.setEstado(EstadoAsignacionVcs.EN_CURSO);
-            asignacion.setFaseActual(FaseActualAsignacion.ASIGNACION);
+            asignacion.setFaseActual(faseInicial);
             asignacionProyectoComunitarioRepository.save(asignacion);
 
             asignaciones.add(asignacion);
         
             // 7. Notifico al estudiante
+            String mensajeEstudiante = proyectoIniciado
+                    ? "Has sido asignado al proyecto: " + proyectoComunitario.getNombre() + ". El proyecto ya se encuentra en fase de Desarrollo, por lo que ya puedes subir tus evidencias."
+                    : "Has sido asignado al proyecto: " + proyectoComunitario.getNombre();
             notificacionService.enviar(
                     idEstudiante,
                     "Asignacion a Proyecto Comunitario",
-                    "Has sido asignado al proyecto: " + proyectoComunitario.getNombre(),
+                    mensajeEstudiante,
                     TipoNotificacion.INFORMACION,
                     "/dashboard/vinculacion/mi-proyecto");
         }
@@ -430,6 +438,15 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
                 .toList();
     }
 
+    private boolean estaProyectoIniciadoEnPeriodo(Long proyectoId, Long periodoId) {
+        if (periodoId != null) {
+            return asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndPeriodoAcademicoIdAndFaseActualNot(
+                    proyectoId, periodoId, FaseActualAsignacion.ASIGNACION);
+        }
+        return asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndFaseActualNot(
+                proyectoId, FaseActualAsignacion.ASIGNACION);
+    }
+
     @Transactional 
     @Override
     public AsignacionProyectoComunitarioDto actualizarAsignacion(Long id, AsignacionProyectoComunitarioActualizarDto dto) {
@@ -447,6 +464,7 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         }
 
         // Validar que el nuevo proyecto exista y que pertenezca a la carrera del estudiante
+        boolean cambioAProyectoIniciado = false;
         if (dto.proyectoComunitarioId() != null && !dto.proyectoComunitarioId().equals(asignacion.getProyectoComunitario().getId())) {
             ProyectoComunitario nuevoProyecto = proyectoComunitarioRepository.findById(dto.proyectoComunitarioId())
                     .orElseThrow(() -> new RecursoNoEncontradoException("Proyecto no encontrado con ID: " + dto.proyectoComunitarioId()));
@@ -455,6 +473,11 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
                 throw new NegocioException("El nuevo proyecto no pertenece a la carrera del estudiante");
             }
             asignacion.setProyectoComunitario(nuevoProyecto);
+            Long periodoAsigId = asignacion.getPeriodoAcademico() != null ? asignacion.getPeriodoAcademico().getId() : null;
+            if (estaProyectoIniciadoEnPeriodo(nuevoProyecto.getId(), periodoAsigId)) {
+                asignacion.setFaseActual(FaseActualAsignacion.DESARROLLO);
+                cambioAProyectoIniciado = true;
+            }
         }
 
         ProcesoVinculacion procesoVinculacion = asignacion.getProcesoVinculacion();
@@ -467,10 +490,13 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         asignacion.setHorasAsignadas(dto.horasAsignadas());
 
         // Notificar al estudiante
+        String mensajeActualizacion = cambioAProyectoIniciado
+                ? "Se ha actualizado su asignacion al proyecto: " + asignacion.getProyectoComunitario().getNombre() + ". El proyecto ya se encuentra en fase de Desarrollo, por lo que ya puedes subir tus evidencias."
+                : "Se ha actualizado su asignacion al proyecto: " + asignacion.getProyectoComunitario().getNombre();
         notificacionService.enviar(
                 asignacion.getProcesoVinculacion().getEstudiante().getId(),
                 "Actualizacion de asignacion a proyecto comunitario",
-                "Se ha actualizado su asignacion al proyecto: " + asignacion.getProyectoComunitario().getNombre(),
+                mensajeActualizacion,
                 TipoNotificacion.INFORMACION,
                 "/dashboard/vinculacion/mi-proyecto");
         
@@ -576,46 +602,58 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         AsignacionProyectoComunitario asignacion = asignacionProyectoComunitarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación no encontrada con ID: " + id));
 
+        if (asignacion.getPeriodoAcademico() != null && asignacion.getPeriodoAcademico().getEstado() == EstadoPeriodo.INACTIVO) {
+            throw new NegocioException("No se puede iniciar el desarrollo en un periodo académico inactivo.");
+        }
+
         if (asignacion.getFaseActual() != FaseActualAsignacion.ASIGNACION) {
             throw new NegocioException("La asignación ya ha iniciado su fase de desarrollo o finalización.");
         }
 
+        Long periodoAsigId = asignacion.getPeriodoAcademico() != null ? asignacion.getPeriodoAcademico().getId() : null;
+        iniciarProyecto(asignacion.getProyectoComunitario().getId(), periodoAsigId);
         asignacion.setFaseActual(FaseActualAsignacion.DESARROLLO);
-        ProyectoComunitario proyecto = asignacion.getProyectoComunitario();
-        AsignacionProyectoComunitario guardada = asignacionProyectoComunitarioRepository.save(asignacion);
-
-        // Notificar al estudiante
-        notificacionService.enviar(
-                asignacion.getProcesoVinculacion().getEstudiante().getId(),
-                "Inicio de Proyecto de Vinculación",
-                "El Tutor Académico ha iniciado el proyecto: " + proyecto.getNombre() + ". Ya puedes subir tus evidencias.",
-                TipoNotificacion.INFORMACION,
-                "/dashboard/vinculacion/mi-proyecto"
-        );
-
-        return asignacionProyectoComunitarioMapeador.aDto(guardada);
+        return asignacionProyectoComunitarioMapeador.aDto(asignacion);
     }
 
     @Transactional
     @Override
-    public int iniciarProyecto(Long proyectoId) {
+    public int iniciarProyecto(Long proyectoId, Long periodoId) {
         ProyectoComunitario proyecto = proyectoComunitarioRepository.findById(proyectoId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proyecto comunitario no encontrado con ID: " + proyectoId));
 
-        if (proyecto.getEstado() == EstadoProyecto.CANCELADO || proyecto.getEstado() == EstadoProyecto.INACTIVO) {
+        if (proyecto.getEstado() == EstadoProyecto.CANCELADO || proyecto.getEstado() == EstadoProyecto.INACTIVO || proyecto.getEstado() == EstadoProyecto.FINALIZADO) {
             throw new NegocioException("No se puede iniciar un proyecto en estado " + proyecto.getEstado());
         }
 
-        List<AsignacionProyectoComunitario> asignaciones = asignacionProyectoComunitarioRepository.findByProyectoComunitarioId(proyectoId);
+        Long periodoObjetivoId = periodoId;
+        if (periodoObjetivoId != null) {
+            final Long idPeriodoBuscado = periodoObjetivoId;
+            PeriodoAcademico periodo = periodoAcademicoRepository.findById(idPeriodoBuscado)
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Periodo académico no encontrado con ID: " + idPeriodoBuscado));
+            if (periodo.getEstado() != EstadoPeriodo.ACTIVO) {
+                throw new NegocioException("No se puede iniciar el proyecto en un periodo académico inactivo.");
+            }
+        } else {
+            List<PeriodoAcademico> activos = periodoAcademicoRepository.findByEstado(EstadoPeriodo.ACTIVO);
+            if (activos != null && !activos.isEmpty()) {
+                periodoObjetivoId = activos.get(0).getId();
+            }
+        }
+
+        List<AsignacionProyectoComunitario> asignaciones = periodoObjetivoId != null
+                ? asignacionProyectoComunitarioRepository.findByProyectoComunitarioIdAndPeriodoAcademicoId(proyectoId, periodoObjetivoId)
+                : asignacionProyectoComunitarioRepository.findByProyectoComunitarioId(proyectoId);
+
         List<AsignacionProyectoComunitario> asignacionesAIniciar = asignaciones.stream()
                 .filter(a -> a.getFaseActual() == FaseActualAsignacion.ASIGNACION)
                 .toList();
 
         if (asignacionesAIniciar.isEmpty()) {
             if (asignaciones.isEmpty()) {
-                throw new NegocioException("El proyecto no tiene estudiantes asignados para iniciar la fase de desarrollo.");
+                throw new NegocioException("El proyecto no tiene estudiantes asignados en el periodo actual para iniciar la fase de desarrollo.");
             }
-            throw new NegocioException("Todos los estudiantes asignados ya han iniciado la fase de desarrollo o culminaron su proceso.");
+            throw new NegocioException("Todos los estudiantes asignados en el periodo ya han iniciado la fase de desarrollo o culminaron su proceso.");
         }
 
         for (AsignacionProyectoComunitario asignacion : asignacionesAIniciar) {
@@ -754,6 +792,23 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
                 "/dashboard/vinculacion/progreso-general"
         );
 
+        String nombreEst = (estudiante != null && estudiante.getNombreCompleto() != null)
+                ? estudiante.getNombreCompleto() : "Estudiante";
+        String nombreProy = (asignacion.getProyectoComunitario() != null)
+                ? asignacion.getProyectoComunitario().getNombre() : "Proyecto";
+        String urlAsignacion = "/dashboard/vinculacion/asignaciones-existentes?asignacionId=" + asignacion.getId();
+        Usuario tutor = asignacion.getProyectoComunitario() != null
+                ? asignacion.getProyectoComunitario().getTutorAcademico() : null;
+        Integer carreraId = proceso.getCarrera() != null
+                ? proceso.getCarrera().getId()
+                : (estudiante != null && estudiante.getCarrera() != null
+                        ? estudiante.getCarrera().getId()
+                        : (asignacion.getProyectoComunitario() != null && asignacion.getProyectoComunitario().getCarrera() != null
+                                ? asignacion.getProyectoComunitario().getCarrera().getId() : null));
+        Usuario cpp = carreraId != null
+                ? usuarioRepository.findByRolAndCarreraId(RolUsuario.COORDINADOR_PRACTICAS, carreraId).orElse(null)
+                : null;
+
         if (procesoCulminado) {
             notificacionService.enviar(
                     estudiante.getId(),
@@ -762,6 +817,28 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
                     TipoNotificacion.INFORMACION,
                     "/dashboard/vinculacion/progreso-general"
             );
+
+            String mensajeCulminacion = "El estudiante " + nombreEst + " ha culminado el 100% de sus horas requeridas (" + horasAcumuladas + "/" + proceso.getHorasRequeridas() + "h) de Vinculación con la Sociedad en el proyecto '" + nombreProy + "'.";
+
+            if (tutor != null) {
+                notificacionService.enviar(
+                        tutor.getId(),
+                        "Proceso de Vinculación Culminado",
+                        mensajeCulminacion,
+                        TipoNotificacion.INFORMACION,
+                        urlAsignacion
+                );
+            }
+
+            if (cpp != null) {
+                notificacionService.enviar(
+                        cpp.getId(),
+                        "Proceso de Vinculación Culminado",
+                        mensajeCulminacion,
+                        TipoNotificacion.INFORMACION,
+                        urlAsignacion
+                );
+            }
 
             // Inactivar estudiante si y solo si también culminó Prácticas Preprofesionales (PP)
             if (estudiante != null) {
@@ -774,6 +851,28 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
                     estudiante.setEstado(EstadoUsuario.INACTIVO);
                     usuarioRepository.save(estudiante);
                 }
+            }
+        } else {
+            String mensajeAcreditacion = "El Subdecanato ha aprobado " + horasAprobar + " horas de Vinculación con la Sociedad para el estudiante " + nombreEst + " en el proyecto '" + nombreProy + "'.";
+
+            if (tutor != null) {
+                notificacionService.enviar(
+                        tutor.getId(),
+                        "Acreditación de Horas de Vinculación",
+                        mensajeAcreditacion,
+                        TipoNotificacion.INFORMACION,
+                        urlAsignacion
+                );
+            }
+
+            if (cpp != null) {
+                notificacionService.enviar(
+                        cpp.getId(),
+                        "Acreditación de Horas de Vinculación",
+                        mensajeAcreditacion,
+                        TipoNotificacion.INFORMACION,
+                        urlAsignacion
+                );
             }
         }
 
@@ -828,20 +927,22 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
         if (urlCertificado != null && urlCertificado.contains("/archivos_subidos/")) {
             try {
                 String rutaRelativa = urlCertificado.substring(urlCertificado.indexOf("/archivos_subidos/") + "/archivos_subidos/".length());
-                Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
-                        .toAbsolutePath().normalize();
+                String baseConfig = rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos";
+                Path carpetaBase = Paths.get(baseConfig).toAbsolutePath().normalize();
+                if (!Files.exists(carpetaBase) && Files.exists(Paths.get("backend", baseConfig))) {
+                    carpetaBase = Paths.get("backend", baseConfig).toAbsolutePath().normalize();
+                }
                 Path filePath = carpetaBase.resolve(rutaRelativa).normalize().toAbsolutePath();
                 if (!filePath.startsWith(carpetaBase)) {
                     throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
                 }
-                if (!Files.exists(filePath) && !rutaRelativa.contains("/")) {
-                    Path posibleVinculacion = carpetaBase.resolve("vinculacion").resolve(rutaRelativa).normalize().toAbsolutePath();
-                    if (posibleVinculacion.startsWith(carpetaBase) && Files.exists(posibleVinculacion)) {
-                        filePath = posibleVinculacion;
-                    } else {
-                        Path posiblePortafolio = carpetaBase.resolve("portafolios").resolve(rutaRelativa).normalize().toAbsolutePath();
-                        if (posiblePortafolio.startsWith(carpetaBase) && Files.exists(posiblePortafolio)) {
-                            filePath = posiblePortafolio;
+                if (!Files.exists(filePath)) {
+                    String nombreArchivoPlano = Paths.get(rutaRelativa).getFileName().toString();
+                    for (String sub : List.of("vinculacion/certificados", "vinculacion/evidencias", "vinculacion", "portafolios")) {
+                        Path posible = carpetaBase.resolve(sub).resolve(nombreArchivoPlano).normalize().toAbsolutePath();
+                        if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
+                            filePath = posible;
+                            break;
                         }
                     }
                 }
@@ -889,18 +990,14 @@ public class AsignacionProyectoComunitarioServiceImpl implements AsignacionProye
     public String obtenerNombreArchivoCertificado(Long id) {
         AsignacionProyectoComunitario asignacion = asignacionProyectoComunitarioRepository.findById(id).orElse(null);
         String nombreEstudiante = "Estudiante";
-        String nombreCarrera = "Carrera";
         if (asignacion != null && asignacion.getProcesoVinculacion() != null && asignacion.getProcesoVinculacion().getEstudiante() != null) {
             Usuario estudiante = asignacion.getProcesoVinculacion().getEstudiante();
             if (estudiante.getNombreCompleto() != null && !estudiante.getNombreCompleto().isBlank()) {
                 nombreEstudiante = estudiante.getNombreCompleto().trim();
             }
-            if (estudiante.getCarrera() != null && estudiante.getCarrera().getNombre() != null && !estudiante.getCarrera().getNombre().isBlank()) {
-                nombreCarrera = estudiante.getCarrera().getNombre().trim();
-            }
+          
         }
-        return ("Certificado_VCS_" + nombreEstudiante + "_" + nombreCarrera)
-                .replaceAll("[^a-zA-Z0-9_.-]", "_") + ".pdf";
+        return nombreEstudiante + " " + "Certificado VCS.pdf";
     }
 
     @Override

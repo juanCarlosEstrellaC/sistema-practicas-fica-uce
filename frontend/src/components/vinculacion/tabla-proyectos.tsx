@@ -29,9 +29,18 @@ import { toast } from 'sonner';
 interface TablaProyectosProps {
   paginaProyectos: RespuestaPaginada<ProyectoComunitarioDto>;
   carreras: CarreraDto[];
+  periodoId?: number;
+  nombrePeriodo?: string;
+  esPeriodoInactivo?: boolean;
 }
 
-export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProps) {
+export function TablaProyectos({
+  paginaProyectos,
+  carreras,
+  periodoId = 1,
+  nombrePeriodo,
+  esPeriodoInactivo = false,
+}: TablaProyectosProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -56,7 +65,7 @@ export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProp
         setProyectoSeleccionado(proyectoEncontrado);
         setEstaAbiertoModalReportes(true);
       } else {
-        obtenerProyectoComunitarioPorIdAccion(pId).then((res) => {
+        obtenerProyectoComunitarioPorIdAccion(pId, periodoId).then((res) => {
           if (res) {
             setProyectoSeleccionado(res);
             setEstaAbiertoModalReportes(true);
@@ -64,7 +73,7 @@ export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProp
         });
       }
     }
-  }, [searchParams, paginaProyectos]);
+  }, [searchParams, paginaProyectos, periodoId]);
 
   const esTutor = usuario?.rol === 'TUTOR_ACADEMICO';
   const puedeEditar = tienePermiso(usuario?.rol, PERMISOS.PROYECTOS_EDITAR);
@@ -76,9 +85,13 @@ export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProp
   const puedeVerAcciones = puedeEditar || puedeEliminar || puedeVerReportes || esTutor;
 
   const manejarIniciarProyecto = async (proyecto: ProyectoComunitarioDto) => {
+    if (esPeriodoInactivo) {
+      toast.error('No se puede iniciar el proyecto en un periodo académico inactivo.');
+      return;
+    }
     try {
       setEstaIniciandoProyectoId(proyecto.id);
-      const res = await iniciarProyectoComunitarioAccion(proyecto.id);
+      const res = await iniciarProyectoComunitarioAccion(proyecto.id, periodoId);
       if (res.exito) {
         toast.success(res.mensaje || 'Proyecto iniciado con éxito. Estudiantes en fase de desarrollo.');
         router.refresh();
@@ -353,8 +366,16 @@ export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProp
                                 variant="outline"
                                 size="sm"
                                 onClick={() => manejarIniciarProyecto(proyecto)}
-                                disabled={estaIniciandoProyectoId === proyecto.id || proyecto.estado !== 'ACTIVO'}
-                                title="Iniciar Proyecto y habilitar fase de desarrollo a los estudiantes"
+                                disabled={
+                                  esPeriodoInactivo ||
+                                  estaIniciandoProyectoId === proyecto.id ||
+                                  proyecto.estado !== 'ACTIVO'
+                                }
+                                title={
+                                  esPeriodoInactivo
+                                    ? 'Periodo académico inactivo (modo solo lectura)'
+                                    : 'Iniciar Proyecto y habilitar fase de desarrollo a los estudiantes del periodo'
+                                }
                                 className="h-8 gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shadow-xs"
                               >
                                 {estaIniciandoProyectoId === proyecto.id ? (
@@ -488,7 +509,11 @@ export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProp
                             variant="outline"
                             size="sm"
                             onClick={() => manejarIniciarProyecto(proyecto)}
-                            disabled={estaIniciandoProyectoId === proyecto.id || proyecto.estado !== 'ACTIVO'}
+                            disabled={
+                              esPeriodoInactivo ||
+                              estaIniciandoProyectoId === proyecto.id ||
+                              proyecto.estado !== 'ACTIVO'
+                            }
                             className="flex-1 min-h-[40px] text-xs font-medium text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 gap-1.5"
                           >
                             {estaIniciandoProyectoId === proyecto.id ? (
@@ -594,6 +619,9 @@ export function TablaProyectos({ paginaProyectos, carreras }: TablaProyectosProp
           }
         }}
         proyecto={proyectoSeleccionado}
+        periodoId={periodoId}
+        nombrePeriodo={nombrePeriodo}
+        esPeriodoInactivo={esPeriodoInactivo}
       />
     </div>
   );

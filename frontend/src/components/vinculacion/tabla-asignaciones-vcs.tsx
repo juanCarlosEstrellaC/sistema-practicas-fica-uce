@@ -838,7 +838,7 @@ export function TablaAsignacionesVcs({
         abrirModal={setEstaAbiertoModalCertificado}
         titulo={tituloCertificadoPreview}
         urlDocumento={urlCertificadoPreview}
-        nombreArchivoDescarga={`Certificado_VCS_${asignacionSeleccionada?.nombreCompletoEstudiante || 'Estudiante'}_${asignacionSeleccionada?.nombreCarrera || 'Carrera'}.pdf`.replace(/\s+/g, '_')}
+        nombreArchivoDescarga={`${asignacionSeleccionada?.nombreCompletoEstudiante || 'Estudiante'} - Certificado VCS.pdf`}
       />
     </div>
   );

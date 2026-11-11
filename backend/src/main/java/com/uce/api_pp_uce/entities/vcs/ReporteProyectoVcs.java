@@ -65,7 +65,7 @@ public class ReporteProyectoVcs {
     private String observaciones;
 
     @CreationTimestamp
-    @Column(name = "fecha_subida", nullable = false, updatable = false)
+    @Column(name = "fecha_subida", nullable = false)
     private LocalDateTime fechaSubida;
 
     @Column(name = "fecha_revision")

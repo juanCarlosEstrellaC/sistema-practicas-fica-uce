@@ -34,9 +34,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.uce.api_pp_uce.entities.Usuario;
-import com.uce.api_pp_uce.enums.RolUsuario;
-import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
 
 import org.springframework.security.access.AccessDeniedException;
 

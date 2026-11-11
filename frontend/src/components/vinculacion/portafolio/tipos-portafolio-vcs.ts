@@ -27,14 +27,21 @@ export interface DocumentoPortafolioVcsItem {
 
 export const formatearFechaIsoCorta = extraerFechaIso;
 
-function encontrarEvidenciaPorTipo(
+export function encontrarEvidenciaPorTipo(
   tipo: TipoDocumentoVcs,
   evidencias: EvidenciaVcs[]
 ): EvidenciaVcs | undefined {
+  const porTipoExacto = evidencias.find((e) => e.tipoDocumento === tipo);
+  if (porTipoExacto) {
+    return porTipoExacto;
+  }
+
+  // Respaldo solo para registros heredados sin tipoDocumento explicito
   return evidencias.find(
     (e) =>
-      e.tipoDocumento === tipo ||
-      (e.nombreArchivo && e.nombreArchivo.toLowerCase().includes(tipo.toLowerCase()))
+      !e.tipoDocumento &&
+      Boolean(e.nombreArchivo) &&
+      e.nombreArchivo.toLowerCase().includes(tipo.toLowerCase())
   );
 }
 
@@ -69,16 +76,12 @@ export function generarConfiguracionPortafolioVcs(
 
   const nombreEstudiante = asignacion?.nombreCompletoEstudiante || 'Estudiante';
   const nombreCarrera = asignacion?.nombreCarrera || 'Carrera';
-  const nombreArchivoCertificado = `Certificado_VCS_${nombreEstudiante}_${nombreCarrera}.pdf`.replace(
-    /\s+/g,
-    '_'
-  );
+  const nombreArchivoCertificado = `${nombreEstudiante} - Certificado VCS.pdf`;
 
   const urlCertificado = certificadoEmitido
-    ? asignacion?.urlCertificado ||
-      (asignacion?.id
-        ? `/api/proxy/asignaciones-proyectos-comunitarios/${asignacion.id}/certificado-horas/preview`
-        : undefined)
+    ? (asignacion?.id
+        ? `/asignaciones-proyectos-comunitarios/${asignacion.id}/certificado-horas/preview`
+        : asignacion?.urlCertificado)
     : undefined;
 
   return [
@@ -94,7 +97,9 @@ export function generarConfiguracionPortafolioVcs(
       comentario: docBitacora?.observacionesTutor || undefined,
       requerido: true,
       etapaMinima: 'DESARROLLO',
-      url: docBitacora?.urlArchivo,
+      url: docBitacora?.id
+        ? `/evidencias-vcs/${docBitacora.id}/preview`
+        : docBitacora?.urlArchivo,
       dbId: docBitacora?.id,
       archivoNombre: docBitacora?.nombreArchivo || 'Bitacora_Actividades.pdf',
     },
@@ -110,7 +115,9 @@ export function generarConfiguracionPortafolioVcs(
       comentario: docInforme?.observacionesTutor || undefined,
       requerido: true,
       etapaMinima: 'DESARROLLO',
-      url: docInforme?.urlArchivo,
+      url: docInforme?.id
+        ? `/evidencias-vcs/${docInforme.id}/preview`
+        : docInforme?.urlArchivo,
       dbId: docInforme?.id,
       archivoNombre: docInforme?.nombreArchivo || 'Informe_Final_Vinculacion.pdf',
     },

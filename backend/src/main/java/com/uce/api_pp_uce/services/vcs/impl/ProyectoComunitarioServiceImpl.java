@@ -5,8 +5,10 @@ import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
 import com.uce.api_pp_uce.entities.Carrera;
+import com.uce.api_pp_uce.entities.PeriodoAcademico;
 import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.entities.vcs.ProyectoComunitario;
+import com.uce.api_pp_uce.enums.EstadoPeriodo;
 import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.enums.TipoNotificacion;
 import com.uce.api_pp_uce.enums.vcs.EstadoProyecto; 
@@ -16,6 +18,7 @@ import com.uce.api_pp_uce.enums.vcs.FaseActualAsignacion;
 import com.uce.api_pp_uce.mapeadores.vcs.ProyectoComunitarioMapeador;
 import com.uce.api_pp_uce.repositories.vcs.AsignacionProyectoComunitarioRepository;
 import com.uce.api_pp_uce.repositories.CarreraRepository;
+import com.uce.api_pp_uce.repositories.PeriodoAcademicoRepository;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
 import com.uce.api_pp_uce.repositories.vcs.ProyectoComunitarioRepository;
 import com.uce.api_pp_uce.services.NotificacionService;
@@ -40,6 +43,7 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
     private final ProyectoComunitarioRepository proyectoComunitarioRepository;
     private final CarreraRepository carreraRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PeriodoAcademicoRepository periodoAcademicoRepository;
     private final AsignacionProyectoComunitarioRepository asignacionProyectoComunitarioRepository;
     private final ProyectoComunitarioMapeador proyectoComunitarioMapeador;
     private final NotificacionService notificacionService;
@@ -69,11 +73,24 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
         }
     }
 
-    private ProyectoComunitarioDto mapearConEstadoInicio(ProyectoComunitario entidad) {
-        boolean tieneAsignaciones = asignacionProyectoComunitarioRepository.existsByProyectoComunitarioId(entidad.getId());
-        boolean tienePendientesIniciar = asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndFaseActual(
-                entidad.getId(), FaseActualAsignacion.ASIGNACION);
-        boolean iniciado = tieneAsignaciones && !tienePendientesIniciar;
+    private Long resolverPeriodoReferencia(Long periodoId) {
+        if (periodoId != null) {
+            return periodoId;
+        }
+        List<PeriodoAcademico> activos = periodoAcademicoRepository.findByEstado(EstadoPeriodo.ACTIVO);
+        if (activos != null && !activos.isEmpty()) {
+            return activos.get(0).getId();
+        }
+        return null;
+    }
+
+    private ProyectoComunitarioDto mapearConEstadoInicio(ProyectoComunitario entidad, Long periodoId) {
+        Long periodoRef = resolverPeriodoReferencia(periodoId);
+        boolean iniciado = periodoRef != null
+                ? asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndPeriodoAcademicoIdAndFaseActualNot(
+                        entidad.getId(), periodoRef, FaseActualAsignacion.ASIGNACION)
+                : asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndFaseActualNot(
+                        entidad.getId(), FaseActualAsignacion.ASIGNACION);
         return proyectoComunitarioMapeador.aDto(entidad, iniciado);
     }
 
@@ -96,7 +113,7 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId, EstadoProyecto estado, Pageable pageable) {
+    public Page<ProyectoComunitarioDto> buscarConFiltros(String busqueda, Integer carreraId, Long tutorId, EstadoProyecto estado, Long periodoId, Pageable pageable) {
         String busquedaLimpia = (busqueda != null && !busqueda.trim().isEmpty()) ? busqueda.trim() : null;
         Integer carreraFiltro = carreraId;
         Long tutorFiltro = tutorId;
@@ -117,16 +134,16 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
 
         Pageable pageableMapeado = mapearPageable(pageable);
         return proyectoComunitarioRepository.buscarConFiltros(busquedaLimpia, carreraFiltro, tutorFiltro, estado, pageableMapeado)
-                .map(this::mapearConEstadoInicio);
+                .map(entidad -> mapearConEstadoInicio(entidad, periodoId));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ProyectoComunitarioDto buscarPorId(Long id) {
+    public ProyectoComunitarioDto buscarPorId(Long id, Long periodoId) {
         ProyectoComunitario entidad = proyectoComunitarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Proyecto comunitario no encontrado con ID: " + id));
         validarAccesoProyecto(entidad);
-        return mapearConEstadoInicio(entidad);
+        return mapearConEstadoInicio(entidad, periodoId);
     }
 
     @Override

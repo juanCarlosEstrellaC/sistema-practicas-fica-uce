@@ -4,15 +4,17 @@ import React from 'react';
 import { TablaTutoresVcs } from './tabla-tutores-vcs';
 import { TutorResumenVcsDto } from '@/lib/tipos/vcs/asignacion-proyecto';
 
+const usuarioMock = {
+  id: 1,
+  nombres: 'Coordinador',
+  apellidos: 'Practicas',
+  correo: 'cpp@uce.edu.ec',
+  rol: 'COORDINADOR_PRACTICAS',
+};
+
 vi.mock('@/lib/contextos/contexto-autenticacion', () => ({
   useAutenticacion: () => ({
-    usuario: {
-      id: 1,
-      nombres: 'Director',
-      apellidos: 'Carrera',
-      correo: 'dc@uce.edu.ec',
-      rol: 'DIRECTOR_CARRERA',
-    },
+    usuario: usuarioMock,
     estaAutenticado: true,
     cargando: false,
   }),
@@ -71,5 +73,13 @@ describe('TablaTutoresVcs (Componente UI)', () => {
     render(<TablaTutoresVcs tutores={[]} />);
 
     expect(screen.getAllByText('No se encontraron tutores académicos')[0]).toBeInTheDocument();
+  });
+
+  it('debe ocultar el botón de Asociar Proyectos cuando el periodo está inactivo', () => {
+    const { rerender } = render(<TablaTutoresVcs tutores={tutoresMock} esInactivo={false} />);
+    expect(screen.getAllByText('Asociar Proyectos').length).toBeGreaterThan(0);
+
+    rerender(<TablaTutoresVcs tutores={tutoresMock} esInactivo={true} />);
+    expect(screen.queryByText('Asociar Proyectos')).not.toBeInTheDocument();
   });
 });

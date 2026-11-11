@@ -47,6 +47,8 @@ interface ModalReportesProyectoProps {
     abrirModal: (abierto: boolean) => void;
     proyecto: ProyectoComunitarioDto | null;
     periodoId?: number;
+    nombrePeriodo?: string;
+    esPeriodoInactivo?: boolean;
 }
 
 export function ModalReportesProyecto({
@@ -54,6 +56,8 @@ export function ModalReportesProyecto({
     abrirModal,
     proyecto,
     periodoId = 1,
+    nombrePeriodo,
+    esPeriodoInactivo = false,
 }: ModalReportesProyectoProps) {
     const { usuario } = useAutenticacion();
     const [reportes, setReportes] = useState<ReporteProyecto[]>([]);
@@ -85,16 +89,57 @@ export function ModalReportesProyecto({
     const [observacion, setObservacion] = useState('');
     const [estaEnviandoRevision, setEstaEnviandoRevision] = useState(false);
 
-    const puedeSubir = tienePermiso(usuario?.rol, PERMISOS.REPORTES_SUBIR);
-    const puedeRevisar = tienePermiso(usuario?.rol, PERMISOS.REPORTES_REVISAR);
+    const puedeSubir = !esPeriodoInactivo && tienePermiso(usuario?.rol, PERMISOS.REPORTES_SUBIR);
+    const puedeRevisar = !esPeriodoInactivo && tienePermiso(usuario?.rol, PERMISOS.REPORTES_REVISAR);
+    const proyectoPermiteSubida = proyecto?.estado !== 'FINALIZADO' && proyecto?.estado !== 'CANCELADO';
 
-    const cargarReportes = async () => {
+    const trimestralAprobado = reportes.some(
+        (r) => r.tipo === 'TRIMESTRAL_AVANCES' && r.estadoSubdecanato === 'APROBADO'
+    );
+    const definitivoAprobado = reportes.some(
+        (r) => r.tipo === 'INFORME_DEFINITIVO' && r.estadoSubdecanato === 'APROBADO'
+    );
+    const ambosAprobados = trimestralAprobado && definitivoAprobado;
+    const reporteExistenteMismoTipo = reportes.find(
+        (r) => r.tipo === tipoReporte && r.estadoSubdecanato !== 'APROBADO'
+    );
+
+    const abrirModoSubida = (tipoForzado?: TipoReporteProyectoVcs) => {
+        const tipoInicial =
+            tipoForzado ??
+            (trimestralAprobado && !definitivoAprobado ? 'INFORME_DEFINITIVO' : 'TRIMESTRAL_AVANCES');
+        setTipoReporte(tipoInicial);
+        setArchivoPdf(null);
+        setArrastrandoPdf(false);
+        if (refInputPdf.current) {
+            refInputPdf.current.value = '';
+        }
+        setModoSubida(true);
+    };
+
+    const construirUrlPreview = (reporte: ReporteProyecto): string => {
+        const urlBase = adaptarUrlProxy(
+            reporte.urlArchivo || (reporte.id ? `/reportes-proyectos-vcs/${reporte.id}/preview` : '')
+        );
+        if (!urlBase) return '';
+        if (reporte.fechaSubida) {
+            const separador = urlBase.includes('?') ? '&' : '?';
+            return `${urlBase}${separador}v=${encodeURIComponent(reporte.fechaSubida)}`;
+        }
+        return urlBase;
+    };
+
+    const cargarReportes = async (idReporteSeleccionar?: number) => {
         if (!proyecto?.id) return;
         setCargando(true);
         try {
-            const respuesta = await obtenerReportesPorProyectoAccion(proyecto.id);
+            const respuesta = await obtenerReportesPorProyectoAccion(proyecto.id, periodoId);
             if (respuesta.exito && respuesta.data) {
                 setReportes(respuesta.data);
+                if (idReporteSeleccionar !== undefined) {
+                    const idxEncontrado = respuesta.data.findIndex((r) => r.id === idReporteSeleccionar);
+                    setIndiceReporteActual(idxEncontrado >= 0 ? idxEncontrado : 0);
+                }
             } else {
                 setReportes([]);
             }
@@ -111,16 +156,22 @@ export function ModalReportesProyecto({
             cargarReportes();
             setIndiceReporteActual(0);
             setModoSubida(false);
+            setTipoReporte('TRIMESTRAL_AVANCES');
             setRechazoOpen(false);
             setObservacion('');
             setArchivoPdf(null);
+            setArrastrandoPdf(false);
         }
-    }, [abierto, proyecto?.id]);
+    }, [abierto, proyecto?.id, periodoId]);
 
     const reporteActual = reportes[indiceReporteActual] || null;
 
     const manejarSubirReporte = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (esPeriodoInactivo) {
+            toast.error('No se pueden subir informes en un periodo académico inactivo');
+            return;
+        }
         if (!proyecto?.id) return;
         if (!archivoPdf) {
             toast.error('Debes seleccionar un archivo PDF para el reporte');
@@ -145,8 +196,10 @@ export function ModalReportesProyecto({
                 toast.success('Reporte subido y enviado a revisión exitosamente');
                 setModoSubida(false);
                 setArchivoPdf(null);
-                await cargarReportes();
-                setIndiceReporteActual(0);
+                if (refInputPdf.current) {
+                    refInputPdf.current.value = '';
+                }
+                await cargarReportes(respuesta.data?.id);
             } else {
                 toast.error(respuesta.mensaje || 'Error al registrar el reporte');
             }
@@ -169,18 +222,20 @@ export function ModalReportesProyecto({
         try {
             const respuesta = await revisarReporteSubdecanatoAccion(reporteActual.id, {
                 estadoSubdecanato: nuevoEstado,
-                observaciones: nuevoEstado === 'OBSERVADO' ? observacion : '',
+                observaciones: nuevoEstado === 'OBSERVADO' ? observacion.trim() : '',
             });
 
             if (respuesta.exito) {
                 toast.success(
                     nuevoEstado === 'APROBADO'
                         ? 'Informe aprobado exitosamente'
+                        : nuevoEstado === 'PENDIENTE'
+                        ? 'Revisión revertida a Pendiente'
                         : 'Informe observado y devuelto al coordinador'
                 );
                 setRechazoOpen(false);
                 setObservacion('');
-                await cargarReportes();
+                await cargarReportes(reporteActual.id);
             } else {
                 toast.error(respuesta.mensaje || 'Error al registrar la revisión');
             }
@@ -193,9 +248,12 @@ export function ModalReportesProyecto({
     };
 
     const descargarReporte = async () => {
-        if (!reporteActual?.urlArchivo) return;
+        if (!reporteActual?.urlArchivo && !reporteActual?.id) return;
         try {
-            const urlFinal = adaptarUrlProxy(reporteActual.urlArchivo);
+            const urlDescarga = reporteActual.id
+                ? `/reportes-proyectos-vcs/${reporteActual.id}/descargar`
+                : reporteActual.urlArchivo;
+            const urlFinal = adaptarUrlProxy(urlDescarga);
             const respuesta = await fetch(urlFinal);
             if (!respuesta.ok) throw new Error('Error al descargar archivo');
             const blob = await respuesta.blob();
@@ -228,6 +286,7 @@ export function ModalReportesProyecto({
                             </DialogTitle>
                             <DialogDescription className="text-xs text-muted-foreground">
                                 {proyecto?.nombre} • {proyecto?.nombreCarrera}
+                                {nombrePeriodo && ` • Periodo: ${nombrePeriodo}${esPeriodoInactivo ? ' (Inactivo)' : ''}`}
                             </DialogDescription>
                         </div>
                     </div>
@@ -241,10 +300,10 @@ export function ModalReportesProyecto({
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Informes ({reportes.length})
                             </span>
-                            {puedeSubir && proyecto?.estado !== 'FINALIZADO' && (
+                            {puedeSubir && proyectoPermiteSubida && !ambosAprobados && (
                                 <Button
                                     size="sm"
-                                    onClick={() => setModoSubida(true)}
+                                    onClick={() => abrirModoSubida()}
                                     className="h-7 text-xs font-semibold gap-1 px-2.5"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
@@ -302,7 +361,10 @@ export function ModalReportesProyecto({
                                             </div>
 
                                             <div className="flex items-center justify-between w-full text-[10px] text-muted-foreground pt-0.5 border-t border-border/40">
-                                                <span>{formatearFechaCorta(rep.fechaSubida)}</span>
+                                                <span>
+                                                    {rep.nombrePeriodo ? `${rep.nombrePeriodo} • ` : ''}
+                                                    {formatearFechaCorta(rep.fechaSubida)}
+                                                </span>
                                                 {rep.nombreCoordinador && (
                                                     <span className="truncate max-w-[120px]">
                                                         {rep.nombreCoordinador}
@@ -352,14 +414,21 @@ export function ModalReportesProyecto({
                                                     <SelectValue placeholder="Seleccione el tipo" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="TRIMESTRAL_AVANCES">
-                                                        Reporte Trimestral de Avances
+                                                    <SelectItem value="TRIMESTRAL_AVANCES" disabled={trimestralAprobado}>
+                                                        Reporte Trimestral de Avances{trimestralAprobado ? ' (Ya aprobado)' : ''}
                                                     </SelectItem>
-                                                    <SelectItem value="INFORME_DEFINITIVO">
-                                                        Informe Final Definitivo (Cierre de Proyecto)
+                                                    <SelectItem value="INFORME_DEFINITIVO" disabled={definitivoAprobado}>
+                                                        Informe Final Definitivo{definitivoAprobado ? ' (Ya aprobado)' : ''}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            {reporteExistenteMismoTipo && (
+                                                <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-md px-2.5 py-1.5">
+                                                    {reporteExistenteMismoTipo.estadoSubdecanato === 'OBSERVADO'
+                                                        ? 'Este envío reemplazará el informe observado y lo remitirá nuevamente a revisión del Subdecanato.'
+                                                        : 'Ya existe un informe de este tipo pendiente de revisión. Si envías un nuevo archivo, reemplazará al anterior.'}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2">
@@ -418,6 +487,7 @@ export function ModalReportesProyecto({
                                                             setArchivoPdf(f);
                                                             toast.success(`Informe preparado: ${f.name}`);
                                                         }
+                                                        e.target.value = '';
                                                     }}
                                                     className="hidden"
                                                 />
@@ -505,18 +575,19 @@ export function ModalReportesProyecto({
                             <>
                                 {/* Barra Superior del Visor con Metadatos y Descarga */}
                                 <div className="p-4 border-b border-border bg-background flex flex-wrap justify-between items-center gap-2 shrink-0">
-                                    <div className="space-y-0.5">
-                                        <div className="flex items-center gap-2">
+                                    <div className="space-y-0.5 min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                                <FileText className="w-4 h-4 text-primary" />
+                                                <FileText className="w-4 h-4 text-primary shrink-0" />
                                                 {reporteActual.tipo === 'TRIMESTRAL_AVANCES'
                                                     ? 'Reporte Trimestral de Avances'
                                                     : 'Informe Final Definitivo'}
                                             </h3>
                                             <BadgeEstadoRevision estado={reporteActual.estadoSubdecanato} />
                                         </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Archivo: <strong>{reporteActual.nombreArchivo}</strong> • Subido:{' '}
+                                        <p className="text-xs text-muted-foreground break-words">
+                                            Archivo: <strong>{reporteActual.nombreArchivo}</strong>
+                                            {reporteActual.nombrePeriodo && ` • Periodo: ${reporteActual.nombrePeriodo}`} • Subido:{' '}
                                             {formatearFechaCorta(reporteActual.fechaSubida)}
                                             {reporteActual.nombreCoordinador && ` por ${reporteActual.nombreCoordinador}`}
                                         </p>
@@ -526,7 +597,7 @@ export function ModalReportesProyecto({
                                         variant="outline"
                                         size="sm"
                                         onClick={descargarReporte}
-                                        className="gap-1.5 h-8 text-xs font-semibold"
+                                        className="gap-1.5 h-8 text-xs font-semibold shrink-0"
                                     >
                                         <Download className="h-3.5 w-3.5 text-primary" />
                                         Descargar PDF
@@ -535,9 +606,10 @@ export function ModalReportesProyecto({
 
                                 {/* Contenedor del PDF (iFrame sin intermediarios) */}
                                 <div className="flex-1 overflow-hidden relative bg-muted/10">
-                                    {reporteActual.urlArchivo ? (
+                                    {reporteActual.urlArchivo || reporteActual.id ? (
                                         <iframe
-                                            src={adaptarUrlProxy(reporteActual.urlArchivo)}
+                                            key={`${reporteActual.id}-${reporteActual.fechaSubida || ''}`}
+                                            src={construirUrlPreview(reporteActual)}
                                             className="w-full h-full border-none"
                                             title={`Visor ${reporteActual.nombreArchivo}`}
                                         />
@@ -685,13 +757,10 @@ export function ModalReportesProyecto({
                                                 </div>
                                             )}
 
-                                            {puedeSubir && reporteActual.estadoSubdecanato === 'OBSERVADO' && (
+                                            {puedeSubir && proyectoPermiteSubida && reporteActual.estadoSubdecanato === 'OBSERVADO' && (
                                                 <Button
                                                     size="sm"
-                                                    onClick={() => {
-                                                        setTipoReporte(reporteActual.tipo);
-                                                        setModoSubida(true);
-                                                    }}
+                                                    onClick={() => abrirModoSubida(reporteActual.tipo)}
                                                     className="gap-1.5 h-8 text-xs font-semibold ml-auto"
                                                 >
                                                     <Upload className="h-3.5 w-3.5" />
@@ -710,15 +779,17 @@ export function ModalReportesProyecto({
                                         No hay ningún informe seleccionado
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                                        {puedeSubir
-                                            ? 'Carga un nuevo informe trimestral o final para el proyecto.'
-                                            : 'Los informes subidos por la Coordinación de Vinculación aparecerán aquí.'}
+                                        {esPeriodoInactivo
+                                            ? 'El periodo académico seleccionado se encuentra inactivo y no cuenta con informes registrados para este proyecto.'
+                                            : puedeSubir
+                                            ? 'Carga un nuevo informe trimestral o final para el proyecto en el periodo actual.'
+                                            : 'Los informes subidos por la Coordinación de Vinculación en este periodo aparecerán aquí.'}
                                     </p>
                                 </div>
-                                {puedeSubir && proyecto?.estado !== 'FINALIZADO' && (
+                                {puedeSubir && proyectoPermiteSubida && !ambosAprobados && (
                                     <Button
                                         size="sm"
-                                        onClick={() => setModoSubida(true)}
+                                        onClick={() => abrirModoSubida()}
                                         className="gap-1.5 text-xs font-semibold mt-2"
                                     >
                                         <Plus className="h-4 w-4" />

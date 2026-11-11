@@ -13,6 +13,7 @@ import { adaptarUrlProxy } from '@/lib/utilidades/proxy-url';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { encontrarEvidenciaPorTipo } from './portafolio/tipos-portafolio-vcs';
 
 import {
     Dialog,
@@ -106,9 +107,7 @@ export function ModalEvidenciasVcs({
     ];
 
     const documentosVcs: ItemDocumentoVcs[] = tiposDefinidos.map((t) => {
-        const evi = evidencias.find(
-            (e) => e.tipoDocumento === t.tipo || (e.nombreArchivo && e.nombreArchivo.toLowerCase().includes(t.tipo.toLowerCase()))
-        );
+        const evi = encontrarEvidenciaPorTipo(t.tipo, evidencias);
         if (!evi) {
             return {
                 ...t,
@@ -293,6 +292,7 @@ export function ModalEvidenciasVcs({
                                 <div className="flex-1 overflow-hidden relative bg-muted/10">
                                     {documentoActual.evidencia?.urlArchivo ? (
                                         <iframe
+                                            key={documentoActual.evidencia.id}
                                             src={adaptarUrlProxy(documentoActual.evidencia.urlArchivo)}
                                             className="w-full h-full border-none"
                                             title={`Visor ${documentoActual.nombre}`}

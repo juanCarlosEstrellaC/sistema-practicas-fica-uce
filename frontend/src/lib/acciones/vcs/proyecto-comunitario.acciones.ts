@@ -30,6 +30,9 @@ export async function obtenerProyectosComunitariosAccion(filtros: FiltrosProyect
   if (filtros.estado) {
     params.set('estado', filtros.estado);
   }
+  if (filtros.periodoId) {
+    params.set('periodoId', filtros.periodoId.toString());
+  }
 
   try {
     const cabeceras = await obtenerCabecerasAutenticacion();
@@ -75,10 +78,11 @@ export async function obtenerProyectosComunitariosAccion(filtros: FiltrosProyect
   }
 }
 
-export async function obtenerProyectoComunitarioPorIdAccion(id: number): Promise<ProyectoComunitarioDto | null> {
+export async function obtenerProyectoComunitarioPorIdAccion(id: number, periodoId?: number): Promise<ProyectoComunitarioDto | null> {
   try {
     const cabeceras = await obtenerCabecerasAutenticacion();
-    const respuesta = await fetch(`${URL_BACKEND}/proyectos-comunitarios/${id}`, {
+    const query = periodoId ? `?periodoId=${periodoId}` : '';
+    const respuesta = await fetch(`${URL_BACKEND}/proyectos-comunitarios/${id}${query}`, {
       method: 'GET',
       headers: cabeceras,
       cache: 'no-store',
@@ -197,10 +201,11 @@ export async function eliminarProyectoComunitarioAccion(id: number)
   }
 }
 
-export async function iniciarProyectoComunitarioAccion(proyectoId: number): Promise<RespuestaApi<number>> {
+export async function iniciarProyectoComunitarioAccion(proyectoId: number, periodoId?: number): Promise<RespuestaApi<number>> {
   try {
     const cabeceras = await obtenerCabecerasAutenticacion();
-    const respuesta = await fetch(`${URL_BACKEND}/asignaciones-proyectos-comunitarios/proyectos/${proyectoId}/iniciar`, {
+    const query = periodoId ? `?periodoId=${periodoId}` : '';
+    const respuesta = await fetch(`${URL_BACKEND}/asignaciones-proyectos-comunitarios/proyectos/${proyectoId}/iniciar${query}`, {
       method: 'PATCH',
       headers: cabeceras,
     });

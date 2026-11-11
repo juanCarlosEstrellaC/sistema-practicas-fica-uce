@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { obtenerUsuarioServidor } from '@/lib/acciones/cliente-servidor';
 import { obtenerAsignacionesPorEstudianteAccion } from '@/lib/acciones/vcs/evidencia-vcs.acciones';
+import { obtenerCarreraPorIdAccion } from '@/lib/acciones/carrera.acciones';
 import { VistaProgresoGeneralVcs } from '@/components/vinculacion/estudiante/vista-progreso-general-vcs';
 
 export const metadata: Metadata = {
@@ -11,8 +12,12 @@ export const metadata: Metadata = {
 export default async function PaginaProgresoGeneralVcs() {
   const usuario = await obtenerUsuarioServidor();
   const estudianteId = usuario?.id ? Number(usuario.id) : 0;
+  const carreraId = usuario?.carreraId ? Number(usuario.carreraId) : undefined;
 
-  const resAsignaciones = await obtenerAsignacionesPorEstudianteAccion(estudianteId);
+  const [resAsignaciones, carrera] = await Promise.all([
+    obtenerAsignacionesPorEstudianteAccion(estudianteId),
+    carreraId ? obtenerCarreraPorIdAccion(carreraId) : Promise.resolve(null),
+  ]);
   const asignaciones = resAsignaciones.data || [];
 
   return (
@@ -26,7 +31,10 @@ export default async function PaginaProgresoGeneralVcs() {
         </p>
       </div>
 
-      <VistaProgresoGeneralVcs asignaciones={asignaciones} />
+      <VistaProgresoGeneralVcs
+        asignaciones={asignaciones}
+        horasRequeridasCarrera={carrera?.horasProyectosComunitarios || 160}
+      />
     </div>
   );
 }

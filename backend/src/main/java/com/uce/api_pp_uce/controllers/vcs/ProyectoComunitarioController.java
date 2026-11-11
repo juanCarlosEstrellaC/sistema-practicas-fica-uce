@@ -32,8 +32,12 @@ public class ProyectoComunitarioController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
-    public ResponseEntity<RespuestaApi<ProyectoComunitarioDto>> buscarPorId(@PathVariable Long id) {
-        ProyectoComunitarioDto proyecto = proyectoComunitarioService.buscarPorId(id);
+    public ResponseEntity<RespuestaApi<ProyectoComunitarioDto>> buscarPorId(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long periodoId) {
+        ProyectoComunitarioDto proyecto = periodoId != null
+                ? proyectoComunitarioService.buscarPorId(id, periodoId)
+                : proyectoComunitarioService.buscarPorId(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyecto comunitario obtenido con éxito", proyecto));
     }
 
@@ -44,8 +48,11 @@ public class ProyectoComunitarioController {
             @RequestParam(required = false) Integer carreraId,
             @RequestParam(required = false) Long tutorId,
             @RequestParam(required = false) EstadoProyecto estado,
+            @RequestParam(required = false) Long periodoId,
             Pageable pageable) {
-        Page<ProyectoComunitarioDto> proyectos = proyectoComunitarioService.buscarConFiltros(busqueda, carreraId, tutorId, estado, pageable);
+        Page<ProyectoComunitarioDto> proyectos = periodoId != null
+                ? proyectoComunitarioService.buscarConFiltros(busqueda, carreraId, tutorId, estado, periodoId, pageable)
+                : proyectoComunitarioService.buscarConFiltros(busqueda, carreraId, tutorId, estado, pageable);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyectos comunitarios obtenidos con éxito", proyectos));
     }
 

@@ -243,4 +243,50 @@ describe('ModalDetalleEstudianteVcs y PortafolioVcs', () => {
       expect(screen.queryByText('Detalles del Documento')).not.toBeInTheDocument();
     });
   });
+
+  it('mantiene estados independientes en PortafolioVcs aunque el nombre de archivo contenga la palabra del otro tipo', () => {
+    const evidenciasCruzadas: EvidenciaVcs[] = [
+      {
+        id: 2,
+        asignacionId: 101,
+        estudianteId: 10,
+        nombreCompletoEstudiante: 'Juan Carlos Estrella Caicedo',
+        identificacionEstudiante: '1712345678',
+        proyectoId: 5,
+        nombreProyecto: 'Alfabetización Digital Comunitaria',
+        tipoDocumento: 'INFORME_FINAL',
+        nombreArchivo: 'Informe Final - bitacora.pdf',
+        urlArchivo: '/evidencias-vcs/2/preview',
+        estadoTutor: 'OBSERVADO',
+        observacionesTutor: 'Corregir conclusiones',
+        fechaSubida: '2026-10-16T10:00:00',
+      },
+      {
+        id: 1,
+        asignacionId: 101,
+        estudianteId: 10,
+        nombreCompletoEstudiante: 'Juan Carlos Estrella Caicedo',
+        identificacionEstudiante: '1712345678',
+        proyectoId: 5,
+        nombreProyecto: 'Alfabetización Digital Comunitaria',
+        tipoDocumento: 'BITACORA',
+        nombreArchivo: 'Bitácora de Actividades - bitacora.pdf',
+        urlArchivo: '/evidencias-vcs/1/preview',
+        estadoTutor: 'PENDIENTE',
+        fechaSubida: '2026-10-15T10:00:00',
+      },
+    ];
+
+    render(
+      <PortafolioVcs
+        asignacionId={101}
+        asignacion={{ ...asignacionBase, faseActual: 'FINALIZACION' }}
+        evidencias={evidenciasCruzadas}
+        etapaActual="FINALIZACION"
+      />
+    );
+
+    expect(screen.getAllByText('En Revisión')).toHaveLength(1);
+    expect(screen.getAllByText('Observado')).toHaveLength(1);
+  });
 });

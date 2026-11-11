@@ -26,20 +26,28 @@ import {
 
 interface VistaProgresoGeneralVcsProps {
   asignaciones: AsignacionProyectoDto[];
+  horasRequeridasCarrera?: number;
 }
 
-export function VistaProgresoGeneralVcs({ asignaciones }: VistaProgresoGeneralVcsProps) {
+export function VistaProgresoGeneralVcs({
+  asignaciones,
+  horasRequeridasCarrera = 160,
+}: VistaProgresoGeneralVcsProps) {
   // Cálculo de horas acumuladas de todos los proyectos
   const primeraAsignacion = asignaciones[0] || null;
-  const horasRequeridas = primeraAsignacion?.horasRequeridasEstudiante || 96;
+  const horasRequeridas = primeraAsignacion?.horasRequeridasEstudiante || horasRequeridasCarrera || 160;
 
-  // Horas convalidadas (sumatoria de horas de proyectos aprobados)
-  const horasAprobadasTotales = asignaciones.reduce((acumulado, asig) => {
+  // Horas convalidadas (sumatoria de horas de proyectos aprobados o acumulado del proceso)
+  const horasSumadas = asignaciones.reduce((acumulado, asig) => {
     if (asig.estado === 'APROBADO') {
       return acumulado + (asig.horasCompletadas || asig.horasAsignadas || 0);
     }
     return acumulado;
   }, 0);
+  const horasAprobadasTotales = Math.max(
+    primeraAsignacion?.horasAcumuladasEstudiante || 0,
+    horasSumadas
+  );
 
   // Horas actualmente en curso
   const horasEnCursoTotales = asignaciones.reduce((acumulado, asig) => {
@@ -199,7 +207,7 @@ export function VistaProgresoGeneralVcs({ asignaciones }: VistaProgresoGeneralVc
             const esFinalizacion = asig.faseActual === 'FINALIZACION';
             const horasValidadasProyecto = esAprobado
               ? (asig.horasCompletadas || asig.horasAsignadas || 0)
-              : (asig.horasCompletadas || 0);
+              : 0;
 
             const numeroProyecto = asignaciones.length - indice;
 
@@ -250,27 +258,6 @@ export function VistaProgresoGeneralVcs({ asignaciones }: VistaProgresoGeneralVc
 
                     {/* Acciones */}
                     <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
-                      {esAprobado && (asig.documentosValidados || Boolean(asig.urlCertificado)) && (() => {
-                        const nombreEstudiante = asig.nombreCompletoEstudiante || 'Estudiante';
-                        const nombreCarrera = asig.nombreCarrera || 'Carrera';
-                        const nombreArchivo = `Certificado_VCS_${nombreEstudiante}_${nombreCarrera}.pdf`.replace(/\s+/g, '_');
-                        const urlCert = asig.urlCertificado
-                          ? asig.urlCertificado
-                          : `/api/proxy/asignaciones-proyectos-comunitarios/${asig.id}/certificado-horas/preview`;
-
-                        return (
-                          <BotonPrevisualizarDocumento
-                            titulo={nombreArchivo}
-                            subtitulo="Documento oficial de Vinculación con la Sociedad • Universidad Central del Ecuador"
-                            url={urlCert}
-                            nombreArchivo={nombreArchivo}
-                            texto="Certificado de Vinculación"
-                            icono={<Award className="h-3.5 w-3.5" />}
-                            className="h-9"
-                          />
-                        );
-                      })()}
-
                       <Button asChild size="sm" className="h-9 text-xs gap-1.5 shadow-2xs">
                         <Link href={`/dashboard/vinculacion/mi-proyecto?id=${asig.id}`}>
                           Ver Proyecto
