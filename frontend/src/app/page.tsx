@@ -229,7 +229,7 @@ export default function LoginPage() {
                       <GraduationCap className="w-4 h-4 text-accent" />
                       <div className="text-left">
                         <div className="font-semibold text-foreground">Estudiante</div>
-                        <div className="text-[10px] text-muted-foreground">Andres Barrera</div>
+                        <div className="text-[10px] text-muted-foreground">Juan Estrella</div>
                       </div>
                     </Button>
 
