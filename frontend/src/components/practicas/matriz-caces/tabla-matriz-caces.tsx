@@ -512,7 +512,6 @@ export function TablaMatrizCaces({
                               title="Corregir observación CACES"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
-                              <span>Corregir</span>
                             </Button>
                           )}
                         </TableCell>
@@ -628,7 +627,6 @@ export function TablaMatrizCaces({
                           onClick={() => iniciarEdicion(item)}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
-                          <span>Corregir</span>
                         </Button>
                       )}
                     </div>

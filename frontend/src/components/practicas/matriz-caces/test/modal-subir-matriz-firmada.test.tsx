@@ -43,9 +43,15 @@ describe('ModalSubirMatrizFirmada (Componente con 2 métodos de firma)', () => {
     expect(screen.getByText('Ingeniería en Computación')).toBeInTheDocument();
     expect(screen.getByText('650611A02')).toBeInTheDocument();
 
-    // Las 2 formas de firmar
-    expect(screen.getByRole('button', { name: 'FirmaEC' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sin FirmaEC (firma manual)' })).toBeInTheDocument();
+    // Las 2 formas de firmar con hover outline consistente (sin sobrescribir bg-accent)
+    const botonFirmaEc = screen.getByRole('button', { name: 'FirmaEC' });
+    const botonFirmaManual = screen.getByRole('button', { name: 'Sin FirmaEC (firma manual)' });
+    expect(botonFirmaEc).toBeInTheDocument();
+    expect(botonFirmaManual).toBeInTheDocument();
+    for (const boton of [botonFirmaEc, botonFirmaManual]) {
+      expect(boton).toHaveClass('hover:bg-accent', 'hover:text-accent-foreground', 'hover:border-primary/50');
+      expect(boton).not.toHaveClass('hover:bg-muted', 'hover:bg-primary/5');
+    }
 
     // El botón de confirmación debe estar deshabilitado porque no hay archivo cargado
     expect(screen.getByRole('button', { name: /Validar y Remitir/i })).toBeDisabled();

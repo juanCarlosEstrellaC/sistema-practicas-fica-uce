@@ -231,7 +231,7 @@ export function ModalSubirMatrizFirmada({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-10 justify-center font-medium text-xs transition-all hover:bg-muted"
+                  className="w-full h-10 justify-center font-medium text-xs transition-all hover:border-primary/50"
                   onClick={() => {
                     toast.info(
                       'El servicio de FirmaEC estará disponible próximamente. Por favor, utilice firma manual.'
@@ -243,7 +243,7 @@ export function ModalSubirMatrizFirmada({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-10 justify-center font-medium text-xs transition-all hover:border-primary/50 hover:bg-primary/5 text-foreground"
+                  className="w-full h-10 justify-center font-medium text-xs transition-all hover:border-primary/50"
                   onClick={() => setMetodoFirma('manual')}
                 >
                   Sin FirmaEC (firma manual)
