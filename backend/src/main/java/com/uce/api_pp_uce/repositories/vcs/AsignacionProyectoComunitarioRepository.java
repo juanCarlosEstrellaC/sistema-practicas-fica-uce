@@ -25,6 +25,8 @@ public interface AsignacionProyectoComunitarioRepository extends JpaRepository<A
 
     boolean existsByProyectoComunitarioId(Long proyectoId);
 
+    boolean existsByProyectoComunitarioIdAndProcesoVinculacionEstudianteId(Long proyectoId, Long estudianteId);
+
     boolean existsByProyectoComunitarioIdAndFaseActual(Long proyectoId, FaseActualAsignacion faseActual);
 
     boolean existsByProyectoComunitarioIdAndFaseActualNot(Long proyectoId, FaseActualAsignacion faseActual);

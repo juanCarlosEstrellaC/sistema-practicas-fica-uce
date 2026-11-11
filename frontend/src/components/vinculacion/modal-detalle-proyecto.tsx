@@ -26,7 +26,15 @@ export function ModalDetalleProyecto({
 }: ModalDetalleProyectoProps) {
   if (!proyecto) return null;
 
-  const urlDocumentoAdaptada = adaptarUrlProxy(proyecto.urlDocumento || undefined);
+  const urlDocumento = proyecto.urlDocumento
+    ? (proyecto.id ? `/proyectos-comunitarios/${proyecto.id}/preview` : proyecto.urlDocumento)
+    : undefined;
+  const urlDocumentoAdaptada = adaptarUrlProxy(urlDocumento);
+  const nombreArchivoPdf = proyecto.nombreDocumento
+    ? (proyecto.nombreDocumento.toLowerCase().endsWith('.pdf')
+        ? proyecto.nombreDocumento
+        : `${proyecto.nombreDocumento}.pdf`)
+    : 'proyecto.pdf';
 
   return (
     <Dialog open={abierto} onOpenChange={(ab) => !ab && alCerrar()}>
@@ -135,7 +143,7 @@ export function ModalDetalleProyecto({
                   url={urlDocumentoAdaptada}
                   titulo={`Proyecto - ${proyecto.nombre}`}
                   subtitulo="Documento oficial de Vinculación con la Sociedad • Universidad Central del Ecuador"
-                  nombreArchivo={proyecto.nombreDocumento || 'proyecto.pdf'}
+                  nombreArchivo={nombreArchivoPdf}
                   texto="Expandir"
                   tamano="sm"
                 />
@@ -144,6 +152,7 @@ export function ModalDetalleProyecto({
 
             {urlDocumentoAdaptada ? (
               <iframe
+                key={`${proyecto.id}-${proyecto.urlDocumento || ''}-${proyecto.nombreDocumento || ''}`}
                 src={urlDocumentoAdaptada}
                 className="w-full flex-1 bg-white"
                 title={`Documento del proyecto ${proyecto.nombre}`}

@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.controllers.vcs;
 
 import tools.jackson.databind.ObjectMapper;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
@@ -19,7 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -27,12 +30,18 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -242,5 +251,70 @@ class ProyectoComunitarioControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.exito").value(false))
                 .andExpect(jsonPath("$.mensaje").value("Proyecto comunitario no encontrado con ID: 99"));
+    }
+
+    @Test
+    @DisplayName("GET /proyectos-comunitarios/{id}/preview - Debe previsualizar PDF inline")
+    void previsualizarDocumento_Exito() throws Exception {
+        byte[] pdfBytes = "%PDF-1.4 proyecto".getBytes();
+        when(proyectoComunitarioService.obtenerProyectoDescarga(1L))
+                .thenReturn(new ArchivoDescargaDto(pdfBytes, "Proyecto_VCS.pdf", "application/pdf"));
+
+        mockMvc.perform(get("/proyectos-comunitarios/1/preview"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"Proyecto_VCS.pdf\""))
+                .andExpect(content().bytes(pdfBytes));
+    }
+
+    @Test
+    @DisplayName("GET /proyectos-comunitarios/{id}/preview - Soporta nombres de archivo con tildes")
+    void previsualizarDocumento_NombreConTildes_Exito() throws Exception {
+        byte[] pdfBytes = "%PDF-1.4 proyecto".getBytes();
+        when(proyectoComunitarioService.obtenerProyectoDescarga(1L))
+                .thenReturn(new ArchivoDescargaDto(pdfBytes, "Alfabetización_Digital.pdf", "application/pdf"));
+
+        mockMvc.perform(get("/proyectos-comunitarios/1/preview"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("inline")))
+                .andExpect(content().bytes(pdfBytes));
+    }
+
+    @Test
+    @DisplayName("GET /proyectos-comunitarios/{id}/descargar - Debe descargar PDF como attachment")
+    void descargarDocumento_Exito() throws Exception {
+        byte[] pdfBytes = "%PDF-1.4 proyecto".getBytes();
+        when(proyectoComunitarioService.obtenerProyectoDescarga(1L))
+                .thenReturn(new ArchivoDescargaDto(pdfBytes, "Proyecto_VCS.pdf", "application/pdf"));
+
+        mockMvc.perform(get("/proyectos-comunitarios/1/descargar"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Proyecto_VCS.pdf\""))
+                .andExpect(content().bytes(pdfBytes));
+    }
+
+    @Test
+    @DisplayName("GET /proyectos-comunitarios/{id}/preview - Retorna 404 si no existe o no tiene documento")
+    void previsualizarDocumento_NoEncontrado() throws Exception {
+        when(proyectoComunitarioService.obtenerProyectoDescarga(99L))
+                .thenThrow(new RecursoNoEncontradoException("El proyecto comunitario no tiene un documento asociado"));
+
+        mockMvc.perform(get("/proyectos-comunitarios/99/preview"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.exito").value(false))
+                .andExpect(jsonPath("$.mensaje").value("El proyecto comunitario no tiene un documento asociado"));
+    }
+
+    @Test
+    @DisplayName("GET /proyectos-comunitarios/{id}/preview - Retorna 403 si falla validacion BOLA")
+    void previsualizarDocumento_AccesoDenegado() throws Exception {
+        when(proyectoComunitarioService.obtenerProyectoDescarga(1L))
+                .thenThrow(new AccessDeniedException("No tiene permisos para acceder a proyectos de otra carrera."));
+
+        mockMvc.perform(get("/proyectos-comunitarios/1/preview"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.exito").value(false))
+                .andExpect(jsonPath("$.mensaje").value("No tiene permisos para acceder a proyectos de otra carrera."));
     }
 }

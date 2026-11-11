@@ -38,6 +38,8 @@ describe('ModalDetalleProyecto (Componente Modular UI)', () => {
     expect(screen.getByText('Tutor Académico Responsable')).toBeInTheDocument();
     expect(screen.getByText('Ing. Carlos Pérez')).toBeInTheDocument();
     expect(screen.getByText('Propuesta_Proyecto_Firmada.pdf')).toBeInTheDocument();
+    const iframe = screen.getByTitle('Documento del proyecto Alfabetización Digital para Adultos Mayores');
+    expect(iframe).toHaveAttribute('src', '/api/proxy/proyectos-comunitarios/1/preview');
   });
 
   it('debe mostrar mensaje cuando el proyecto no tiene documento subido', () => {

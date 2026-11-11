@@ -119,8 +119,12 @@ export function ModalCrearProyecto({ abierto, abrirModal, proyectoAEditar, carre
   const enviarDatos = (datos: FormularioProyectoComunitario) => {
     iniciarTransicion(async () => {
       try {
-        let urlDocumento = proyectoAEditar?.urlDocumento || '';
-        let nombreDocumento = proyectoAEditar?.nombreDocumento || '';
+        const urlDocOriginal = proyectoAEditar?.urlDocumento || '';
+        const esUrlPreview = /^(\/api\/proxy)?\/proyectos-comunitarios\/\d+\/(preview|descargar)(\?.*)?$/.test(
+          urlDocOriginal
+        );
+        let urlDocumento: string | undefined = esUrlPreview ? undefined : urlDocOriginal;
+        let nombreDocumento: string | undefined = proyectoAEditar?.nombreDocumento || undefined;
 
         if (archivoProyecto) {
           toast.loading('Subiendo documento del proyecto...', { id: 'subida-doc-proyecto' });
@@ -307,8 +311,14 @@ export function ModalCrearProyecto({ abierto, abrirModal, proyectoAEditar, carre
           <div className="space-y-2 pt-2 border-t border-border w-full min-w-0">
             <Label className="text-sm font-semibold">Documento del Proyecto (Formato PDF)</Label>
             {(() => {
-              const urlDocExistente = proyectoAEditar?.urlDocumento;
+              const urlOriginal = proyectoAEditar?.urlDocumento;
+              const urlDocExistente = urlOriginal
+                ? (proyectoAEditar?.id ? `/proyectos-comunitarios/${proyectoAEditar.id}/preview` : urlOriginal)
+                : undefined;
               const nombreDocExistente = proyectoAEditar?.nombreDocumento || 'Documento adjunto';
+              const nombreArchivoPreview = nombreDocExistente.toLowerCase().endsWith('.pdf')
+                ? nombreDocExistente
+                : `${nombreDocExistente}.pdf`;
 
               if (urlDocExistente && !quitarDocumentoActual) {
                 return (
@@ -324,7 +334,7 @@ export function ModalCrearProyecto({ abierto, abrirModal, proyectoAEditar, carre
                         url={adaptarUrlProxy(urlDocExistente)}
                         titulo={`Documento de Proyecto - ${proyectoAEditar?.nombre || 'Proyecto'}`}
                         subtitulo="Documento oficial de Vinculación con la Sociedad • Universidad Central del Ecuador"
-                        nombreArchivo={nombreDocExistente}
+                        nombreArchivo={nombreArchivoPreview}
                         texto="Ver"
                         variante="ghost"
                         tamano="sm"

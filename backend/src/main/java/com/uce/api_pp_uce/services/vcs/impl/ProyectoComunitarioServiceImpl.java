@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.services.vcs.impl;
 
 import com.uce.api_pp_uce.common.Utilitarios;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
@@ -25,6 +26,7 @@ import com.uce.api_pp_uce.services.NotificacionService;
 import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.vcs.ProyectoComunitarioService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -33,12 +35,19 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioService {
+
+    @Value("${app.almacenamiento.ruta-base:archivos_subidos}")
+    private String rutaBaseAlmacenamiento = "archivos_subidos";
 
     private final ProyectoComunitarioRepository proyectoComunitarioRepository;
     private final CarreraRepository carreraRepository;
@@ -49,13 +58,20 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
     private final NotificacionService notificacionService;
     private final UsuarioAutenticadoService usuarioAutenticadoService;
 
+    private Usuario obtenerUsuarioAutenticadoActual() {
+        return usuarioAutenticadoService != null ? usuarioAutenticadoService.obtenerUsuarioLogueado() : null;
+    }
+
     private void validarAccesoProyecto(ProyectoComunitario entidad) {
-        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
-        if (usuario == null) {
+        validarAccesoProyecto(entidad, obtenerUsuarioAutenticadoActual());
+    }
+
+    private void validarAccesoProyecto(ProyectoComunitario entidad, Usuario usuario) {
+        if (usuario == null || entidad == null) {
             return;
         }
         RolUsuario rol = usuario.getRol();
-        if (rol == RolUsuario.SUBDECANO) {
+        if (rol == null || rol == RolUsuario.SUBDECANO) {
             return;
         }
         if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
@@ -64,13 +80,56 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
             if (miCarreraId != null && carreraProyecto != null && !miCarreraId.equals(carreraProyecto)) {
                 throw new AccessDeniedException("No tiene permisos para acceder a proyectos de otra carrera.");
             }
-        } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
+            return;
+        }
+        if (rol == RolUsuario.TUTOR_ACADEMICO) {
             Long miId = usuario.getId();
             Long tutorProyectoId = entidad.getTutorAcademico() != null ? entidad.getTutorAcademico().getId() : null;
-            if (tutorProyectoId != null && !miId.equals(tutorProyectoId)) {
-                throw new AccessDeniedException("No tiene permisos para acceder a proyectos asignados a otro tutor.");
+            if (tutorProyectoId == null || miId == null || !miId.equals(tutorProyectoId)) {
+                throw new AccessDeniedException("No tiene permisos para acceder a proyectos donde no es el tutor asignado.");
             }
+            return;
         }
+        if (rol == RolUsuario.ESTUDIANTE) {
+            boolean estaAsignado = usuario.getId() != null
+                    && entidad.getId() != null
+                    && asignacionProyectoComunitarioRepository
+                            .existsByProyectoComunitarioIdAndProcesoVinculacionEstudianteId(
+                                    entidad.getId(), usuario.getId());
+            if (!estaAsignado) {
+                throw new AccessDeniedException("No tiene permisos para acceder a un proyecto al que no está asignado.");
+            }
+            return;
+        }
+        throw new AccessDeniedException("No tiene permisos para acceder a este proyecto comunitario.");
+    }
+
+    private ProyectoComunitarioDto enmascararUrlDocumento(ProyectoComunitario entidad, ProyectoComunitarioDto dto) {
+        if (dto != null && entidad != null && entidad.getId() != null
+                && entidad.getUrlDocumento() != null && !entidad.getUrlDocumento().isBlank()) {
+            return new ProyectoComunitarioDto(
+                    dto.id(),
+                    dto.nombre(),
+                    dto.descripcion(),
+                    dto.carreraId(),
+                    dto.nombreCarrera(),
+                    dto.tutorAcademicoId(),
+                    dto.nombreCompletoTutor(),
+                    dto.correoTutor(),
+                    dto.estado(),
+                    dto.fechaInicio(),
+                    dto.fechaFin(),
+                    "/proyectos-comunitarios/" + entidad.getId() + "/preview",
+                    dto.nombreDocumento(),
+                    dto.fechaCreacion(),
+                    dto.iniciado()
+            );
+        }
+        return dto;
+    }
+
+    private boolean esUrlPreviewProyecto(String url) {
+        return url.matches("^(/api/proxy)?/proyectos-comunitarios/\\d+/(preview|descargar)(\\?.*)?$");
     }
 
     private Long resolverPeriodoReferencia(Long periodoId) {
@@ -91,7 +150,7 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
                         entidad.getId(), periodoRef, FaseActualAsignacion.ASIGNACION)
                 : asignacionProyectoComunitarioRepository.existsByProyectoComunitarioIdAndFaseActualNot(
                         entidad.getId(), FaseActualAsignacion.ASIGNACION);
-        return proyectoComunitarioMapeador.aDto(entidad, iniciado);
+        return enmascararUrlDocumento(entidad, proyectoComunitarioMapeador.aDto(entidad, iniciado));
     }
 
     private Pageable mapearPageable(Pageable pageable) {
@@ -185,7 +244,7 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
             );
         }
 
-        return proyectoComunitarioMapeador.aDto(guardado);
+        return enmascararUrlDocumento(guardado, proyectoComunitarioMapeador.aDto(guardado));
     }
 
     @Override
@@ -217,8 +276,22 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
 
         Usuario tutorAnterior = entidadExistente.getTutorAcademico();
         Long idTutorAnterior = tutorAnterior != null ? tutorAnterior.getId() : null;
+        String urlDocumentoAnterior = entidadExistente.getUrlDocumento();
+        String nombreDocumentoAnterior = entidadExistente.getNombreDocumento();
 
         proyectoComunitarioMapeador.actualizarEntidadDesdeDto(dto, entidadExistente);
+        if (dto.urlDocumento() != null) {
+            String urlDto = dto.urlDocumento().trim();
+            if (urlDto.isEmpty()) {
+                entidadExistente.setUrlDocumento(null);
+                entidadExistente.setNombreDocumento(null);
+            } else if (esUrlPreviewProyecto(urlDto)) {
+                entidadExistente.setUrlDocumento(urlDocumentoAnterior);
+                if (dto.nombreDocumento() == null || dto.nombreDocumento().isBlank()) {
+                    entidadExistente.setNombreDocumento(nombreDocumentoAnterior);
+                }
+            }
+        }
         entidadExistente.setCarrera(carrera);
         if (dto.tutorAcademicoId() != null) {
             entidadExistente.setTutorAcademico(tutorAcademico);
@@ -236,7 +309,7 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
             );
         }
 
-        return proyectoComunitarioMapeador.aDto(actualizado);
+        return enmascararUrlDocumento(actualizado, proyectoComunitarioMapeador.aDto(actualizado));
     }
 
     @Override
@@ -246,5 +319,81 @@ public class ProyectoComunitarioServiceImpl implements ProyectoComunitarioServic
             throw new RecursoNoEncontradoException("Proyecto comunitario no encontrado con ID: " + id);
         }
         proyectoComunitarioRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArchivoDescargaDto obtenerProyectoDescarga(Long id) {
+        return obtenerProyectoDescarga(id, obtenerUsuarioAutenticadoActual());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArchivoDescargaDto obtenerProyectoDescarga(Long id, Usuario usuarioAutenticado) {
+        Usuario actor = usuarioAutenticado != null ? usuarioAutenticado : obtenerUsuarioAutenticadoActual();
+        ProyectoComunitario proyecto = proyectoComunitarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Proyecto comunitario no encontrado con ID: " + id));
+
+        validarAccesoProyecto(proyecto, actor);
+
+        if (proyecto.getUrlDocumento() == null || proyecto.getUrlDocumento().isBlank()) {
+            throw new RecursoNoEncontradoException("El proyecto comunitario no tiene un documento asociado");
+        }
+
+        String rutaLimpia = proyecto.getUrlDocumento().trim();
+        int idxArchivos = rutaLimpia.indexOf("/archivos_subidos/");
+        if (idxArchivos != -1) {
+            rutaLimpia = rutaLimpia.substring(idxArchivos + "/archivos_subidos/".length());
+        } else {
+            if (rutaLimpia.startsWith("/")) {
+                rutaLimpia = rutaLimpia.substring(1);
+            }
+            if (rutaLimpia.startsWith("archivos_subidos/")) {
+                rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
+            }
+        }
+
+        String baseConfig = rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos";
+        Path carpetaBase = Paths.get(baseConfig).toAbsolutePath().normalize();
+        if (!Files.exists(carpetaBase) && Files.exists(Paths.get("backend", baseConfig))) {
+            carpetaBase = Paths.get("backend", baseConfig).toAbsolutePath().normalize();
+        }
+        Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
+
+        if (!filePath.startsWith(carpetaBase)) {
+            throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
+        }
+
+        if (!Files.exists(filePath)) {
+            Path nombrePlano = Paths.get(rutaLimpia).getFileName();
+            if (nombrePlano != null) {
+                for (String sub : List.of("vinculacion", "vinculacion/proyectos")) {
+                    Path posible = carpetaBase.resolve(sub).resolve(nombrePlano).normalize().toAbsolutePath();
+                    if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
+                        filePath = posible;
+                        break;
+                    }
+                }
+            }
+            if (!Files.exists(filePath)) {
+                throw new RecursoNoEncontradoException("El archivo físico del proyecto no existe en el servidor: " + filePath.getFileName());
+            }
+        }
+
+        byte[] contenido;
+        try {
+            contenido = Files.readAllBytes(filePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Error al leer el archivo del proyecto del disco", e);
+        }
+
+        String nombreDescarga = proyecto.getNombreDocumento() != null && !proyecto.getNombreDocumento().isBlank()
+                ? proyecto.getNombreDocumento()
+                : filePath.getFileName().toString();
+        if (!nombreDescarga.toLowerCase().endsWith(".pdf")) {
+            nombreDescarga += ".pdf";
+        }
+
+        return new ArchivoDescargaDto(contenido, nombreDescarga, "application/pdf");
     }
 }

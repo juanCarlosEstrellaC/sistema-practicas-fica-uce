@@ -1,8 +1,10 @@
 package com.uce.api_pp_uce.services.vcs;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
+import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.enums.vcs.EstadoProyecto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,4 +28,8 @@ public interface ProyectoComunitarioService {
     ProyectoComunitarioDto actualizarProyecto(Long id, ProyectoComunitarioActualizarDto dto);
 
     void eliminarProyecto(Long id);
+
+    ArchivoDescargaDto obtenerProyectoDescarga(Long id);
+
+    ArchivoDescargaDto obtenerProyectoDescarga(Long id, Usuario usuarioAutenticado);
 }

@@ -1,5 +1,6 @@
 package com.uce.api_pp_uce.services.vcs;
 
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,17 +34,31 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProyectoComunitarioServiceTest {
@@ -408,5 +424,242 @@ class ProyectoComunitarioServiceTest {
 
         assertTrue(resultado.iniciado());
         verify(asignacionProyectoComunitarioRepository).existsByProyectoComunitarioIdAndFaseActualNot(10L, FaseActualAsignacion.ASIGNACION);
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Enmascara urlDocumento hacia endpoint protegido /preview")
+    void buscarPorId_ConDocumento_EnmascaraUrlPreview() {
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/doc_41.pdf");
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(proyectoComunitarioMapeador.aDto(eq(proyectoMock), anyBoolean())).thenReturn(proyectoDtoMock);
+
+        ProyectoComunitarioDto resultado = proyectoComunitarioService.buscarPorId(10L);
+
+        assertEquals("/proyectos-comunitarios/10/preview", resultado.urlDocumento());
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Como TUTOR_ACADEMICO deniega acceso si el proyecto no tiene tutor asignado (BOLA)")
+    void buscarPorId_ComoTutor_DeniegaAccesoSiNoTieneTutor() {
+        Usuario tutor = new Usuario();
+        tutor.setId(99L);
+        tutor.setRol(RolUsuario.TUTOR_ACADEMICO);
+        proyectoMock.setTutorAcademico(null);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutor);
+
+        assertThrows(AccessDeniedException.class, () -> proyectoComunitarioService.buscarPorId(10L));
+    }
+
+    @Test
+    @DisplayName("buscarPorId - Como ESTUDIANTE no asignado deniega acceso (BOLA)")
+    void buscarPorId_ComoEstudianteNoAsignado_DeniegaAcceso() {
+        Usuario estudiante = new Usuario();
+        estudiante.setId(55L);
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudiante);
+        when(asignacionProyectoComunitarioRepository
+                .existsByProyectoComunitarioIdAndProcesoVinculacionEstudianteId(10L, 55L))
+                .thenReturn(false);
+
+        assertThrows(AccessDeniedException.class, () -> proyectoComunitarioService.buscarPorId(10L));
+    }
+
+    @Test
+    @DisplayName("actualizarProyecto - Preserva ruta fisica si el cliente reenvia URL de preview")
+    void actualizarProyecto_ConUrlPreview_PreservaRutaFisica() {
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/real.pdf");
+        proyectoMock.setNombreDocumento("Convenio.pdf");
+
+        ProyectoComunitarioActualizarDto peticion = new ProyectoComunitarioActualizarDto(
+                "Alfabetización Digital",
+                "Nueva Desc",
+                1,
+                null,
+                EstadoProyecto.ACTIVO,
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2027, 3, 31),
+                "/proyectos-comunitarios/10/preview",
+                ""
+        );
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(carreraRepository.findById(1)).thenReturn(Optional.of(carreraMock));
+        when(proyectoComunitarioRepository.existsByNombreIgnoreCaseAndCarreraIdAndIdNot("Alfabetización Digital", 1, 10L))
+                .thenReturn(false);
+        doAnswer(inv -> {
+            ProyectoComunitarioActualizarDto d = inv.getArgument(0);
+            ProyectoComunitario p = inv.getArgument(1);
+            p.setUrlDocumento(d.urlDocumento());
+            p.setNombreDocumento(d.nombreDocumento());
+            return null;
+        }).when(proyectoComunitarioMapeador).actualizarEntidadDesdeDto(peticion, proyectoMock);
+        when(proyectoComunitarioRepository.save(proyectoMock)).thenReturn(proyectoMock);
+        when(proyectoComunitarioMapeador.aDto(proyectoMock)).thenReturn(proyectoDtoMock);
+
+        ProyectoComunitarioDto resultado = proyectoComunitarioService.actualizarProyecto(10L, peticion);
+
+        assertEquals("/archivos_subidos/vinculacion/real.pdf", proyectoMock.getUrlDocumento());
+        assertEquals("Convenio.pdf", proyectoMock.getNombreDocumento());
+        assertEquals("/proyectos-comunitarios/10/preview", resultado.urlDocumento());
+    }
+
+    @Test
+    @DisplayName("actualizarProyecto - Limpia documento si el cliente envia urlDocumento vacia")
+    void actualizarProyecto_ConUrlVacia_LimpiaDocumento() {
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/real.pdf");
+        proyectoMock.setNombreDocumento("Convenio.pdf");
+
+        ProyectoComunitarioActualizarDto peticion = new ProyectoComunitarioActualizarDto(
+                "Alfabetización Digital",
+                "Nueva Desc",
+                1,
+                null,
+                EstadoProyecto.ACTIVO,
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2027, 3, 31),
+                "",
+                ""
+        );
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(carreraRepository.findById(1)).thenReturn(Optional.of(carreraMock));
+        when(proyectoComunitarioRepository.existsByNombreIgnoreCaseAndCarreraIdAndIdNot("Alfabetización Digital", 1, 10L))
+                .thenReturn(false);
+        doAnswer(inv -> {
+            ProyectoComunitarioActualizarDto d = inv.getArgument(0);
+            ProyectoComunitario p = inv.getArgument(1);
+            p.setUrlDocumento(d.urlDocumento());
+            p.setNombreDocumento(d.nombreDocumento());
+            return null;
+        }).when(proyectoComunitarioMapeador).actualizarEntidadDesdeDto(peticion, proyectoMock);
+        when(proyectoComunitarioRepository.save(proyectoMock)).thenReturn(proyectoMock);
+        when(proyectoComunitarioMapeador.aDto(proyectoMock)).thenReturn(proyectoDtoMock);
+
+        proyectoComunitarioService.actualizarProyecto(10L, peticion);
+
+        assertNull(proyectoMock.getUrlDocumento());
+        assertNull(proyectoMock.getNombreDocumento());
+    }
+
+    @Test
+    @DisplayName("obtenerProyectoDescarga - Lee PDF fisico desde archivos_subidos/vinculacion para SUBDECANO")
+    void obtenerProyectoDescarga_Subdecano_RetornaBytes(@TempDir Path tempDir) throws Exception {
+        Path carpetaVinculacion = tempDir.resolve("vinculacion");
+        Files.createDirectories(carpetaVinculacion);
+        byte[] pdfBytes = "%PDF-1.4 contenido proyecto".getBytes();
+        Files.write(carpetaVinculacion.resolve("proyecto_41.pdf"), pdfBytes);
+
+        ReflectionTestUtils.setField(proyectoComunitarioService, "rutaBaseAlmacenamiento", tempDir.toString());
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/proyecto_41.pdf");
+        proyectoMock.setNombreDocumento("41. Convenio FING-empresa");
+
+        Usuario subdecano = new Usuario();
+        subdecano.setId(1L);
+        subdecano.setRol(RolUsuario.SUBDECANO);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+
+        ArchivoDescargaDto descarga = proyectoComunitarioService.obtenerProyectoDescarga(10L, subdecano);
+
+        assertNotNull(descarga);
+        assertArrayEquals(pdfBytes, descarga.contenido());
+        assertEquals("41. Convenio FING-empresa.pdf", descarga.nombreArchivo());
+        assertEquals("application/pdf", descarga.contentType());
+    }
+
+    @Test
+    @DisplayName("obtenerProyectoDescarga - Permite descarga a ESTUDIANTE asignado al proyecto")
+    void obtenerProyectoDescarga_EstudianteAsignado_RetornaBytes(@TempDir Path tempDir) throws Exception {
+        Path carpetaVinculacion = tempDir.resolve("vinculacion");
+        Files.createDirectories(carpetaVinculacion);
+        byte[] pdfBytes = "%PDF-1.4 estudiante".getBytes();
+        Files.write(carpetaVinculacion.resolve("proyecto_est.pdf"), pdfBytes);
+
+        ReflectionTestUtils.setField(proyectoComunitarioService, "rutaBaseAlmacenamiento", tempDir.toString());
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/proyecto_est.pdf");
+        proyectoMock.setNombreDocumento("Proyecto_Est.pdf");
+
+        Usuario estudiante = new Usuario();
+        estudiante.setId(55L);
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(asignacionProyectoComunitarioRepository
+                .existsByProyectoComunitarioIdAndProcesoVinculacionEstudianteId(10L, 55L))
+                .thenReturn(true);
+
+        ArchivoDescargaDto descarga = proyectoComunitarioService.obtenerProyectoDescarga(10L, estudiante);
+
+        assertArrayEquals(pdfBytes, descarga.contenido());
+    }
+
+    @Test
+    @DisplayName("obtenerProyectoDescarga - Deniega acceso a ESTUDIANTE no asignado (BOLA)")
+    void obtenerProyectoDescarga_EstudianteNoAsignado_DeniegaAcceso() {
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/proyecto.pdf");
+        Usuario estudiante = new Usuario();
+        estudiante.setId(55L);
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+        when(asignacionProyectoComunitarioRepository
+                .existsByProyectoComunitarioIdAndProcesoVinculacionEstudianteId(10L, 55L))
+                .thenReturn(false);
+
+        assertThrows(AccessDeniedException.class,
+                () -> proyectoComunitarioService.obtenerProyectoDescarga(10L, estudiante));
+    }
+
+    @Test
+    @DisplayName("obtenerProyectoDescarga - Deniega acceso a COORDINADOR_PRACTICAS de otra carrera (BOLA)")
+    void obtenerProyectoDescarga_CoordinadorOtraCarrera_DeniegaAcceso() {
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/proyecto.pdf");
+        Carrera otraCarrera = new Carrera();
+        otraCarrera.setId(99);
+        Usuario coordinador = new Usuario();
+        coordinador.setId(30L);
+        coordinador.setRol(RolUsuario.COORDINADOR_PRACTICAS);
+        coordinador.setCarrera(otraCarrera);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+
+        assertThrows(AccessDeniedException.class,
+                () -> proyectoComunitarioService.obtenerProyectoDescarga(10L, coordinador));
+    }
+
+    @Test
+    @DisplayName("obtenerProyectoDescarga - Lanza RecursoNoEncontradoException si no tiene documento o falta en disco")
+    void obtenerProyectoDescarga_SinArchivoFisico_LanzaNotFound(@TempDir Path tempDir) {
+        ReflectionTestUtils.setField(proyectoComunitarioService, "rutaBaseAlmacenamiento", tempDir.toString());
+        proyectoMock.setUrlDocumento("/archivos_subidos/vinculacion/no_existe.pdf");
+
+        Usuario subdecano = new Usuario();
+        subdecano.setId(1L);
+        subdecano.setRol(RolUsuario.SUBDECANO);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+
+        assertThrows(RecursoNoEncontradoException.class,
+                () -> proyectoComunitarioService.obtenerProyectoDescarga(10L, subdecano));
+    }
+
+    @Test
+    @DisplayName("obtenerProyectoDescarga - Bloquea path traversal con NegocioException")
+    void obtenerProyectoDescarga_PathTraversal_LanzaNegocioException(@TempDir Path tempDir) {
+        ReflectionTestUtils.setField(proyectoComunitarioService, "rutaBaseAlmacenamiento", tempDir.toString());
+        proyectoMock.setUrlDocumento("../../etc/passwd");
+
+        Usuario subdecano = new Usuario();
+        subdecano.setId(1L);
+        subdecano.setRol(RolUsuario.SUBDECANO);
+
+        when(proyectoComunitarioRepository.findById(10L)).thenReturn(Optional.of(proyectoMock));
+
+        assertThrows(NegocioException.class,
+                () -> proyectoComunitarioService.obtenerProyectoDescarga(10L, subdecano));
     }
 }

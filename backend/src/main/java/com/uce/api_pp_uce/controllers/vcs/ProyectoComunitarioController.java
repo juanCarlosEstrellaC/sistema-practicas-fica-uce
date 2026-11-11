@@ -1,6 +1,8 @@
 package com.uce.api_pp_uce.controllers.vcs;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.common.RespuestaArchivoUtil;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioActualizarDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioDto;
 import com.uce.api_pp_uce.dtos.vcs.ProyectoComunitarioNuevoDto;
@@ -39,6 +41,20 @@ public class ProyectoComunitarioController {
                 ? proyectoComunitarioService.buscarPorId(id, periodoId)
                 : proyectoComunitarioService.buscarPorId(id);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Proyecto comunitario obtenido con éxito", proyecto));
+    }
+
+    @GetMapping("/{id}/preview")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    public ResponseEntity<byte[]> previsualizarDocumento(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = proyectoComunitarioService.obtenerProyectoDescarga(id);
+        return RespuestaArchivoUtil.previsualizar(descarga);
+    }
+
+    @GetMapping("/{id}/descargar")
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    public ResponseEntity<byte[]> descargarDocumento(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = proyectoComunitarioService.obtenerProyectoDescarga(id);
+        return RespuestaArchivoUtil.descargar(descarga);
     }
 
     @GetMapping
