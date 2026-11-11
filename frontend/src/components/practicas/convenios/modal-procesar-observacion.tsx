@@ -144,10 +144,10 @@ export function ModalProcesarObservacion({
 
   return (
     <Dialog open={abierto} onOpenChange={(ab) => !ab && manejarCerrarModal()}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto pr-2">
-        <DialogHeader>
-          <div className="flex items-center justify-between gap-3 mr-6">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <DialogHeader className="text-left">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold min-w-0">
               {esAnulacion ? (
                 <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4" />
@@ -157,7 +157,7 @@ export function ModalProcesarObservacion({
                   <Building2 className="w-4 h-4" />
                 </div>
               )}
-              <span>
+              <span className="leading-snug">
                 {esAnulacion ? 'Observación de Anulación' : 'Propuesta de Nuevo Convenio'}
               </span>
             </DialogTitle>
@@ -170,45 +170,45 @@ export function ModalProcesarObservacion({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 min-w-0">
           {/* Tarjeta de información institucional y fecha */}
-          <div className="grid grid-cols-2 gap-3 p-3.5 rounded-lg border border-border/60 bg-muted/20 text-sm">
-            <div>
-              <span className="text-[11px] text-muted-foreground font-semibold block uppercase">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-lg border border-border/60 bg-muted/20 text-sm">
+            <div className="min-w-0">
+              <span className="text-[11px] text-muted-foreground font-semibold block">
                 Empresa / Institución
               </span>
               <span className="font-semibold text-foreground block truncate" title={observacion.empresa}>
                 {observacion.empresa}
               </span>
             </div>
-            <div>
-              <span className="text-[11px] text-muted-foreground font-semibold block uppercase">
+            <div className="min-w-0">
+              <span className="text-[11px] text-muted-foreground font-semibold block">
                 Fecha de Envío
               </span>
-              <span className="font-medium text-foreground flex items-center gap-1 mt-0.5">
+              <span className="font-medium text-foreground flex items-center gap-1.5 mt-0.5">
                 <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                {formatearFecha(observacion.fecha, false)}
+                <span>{formatearFecha(observacion.fecha, false)}</span>
               </span>
             </div>
             {observacion.contacto && (
-              <div>
-                <span className="text-[11px] text-muted-foreground font-semibold block uppercase">
+              <div className="min-w-0">
+                <span className="text-[11px] text-muted-foreground font-semibold block">
                   Contacto
                 </span>
-                <span className="font-medium text-foreground flex items-center gap-1 mt-0.5 truncate" title={observacion.contacto}>
+                <span className="font-medium text-foreground flex items-center gap-1.5 mt-0.5 min-w-0" title={observacion.contacto}>
                   <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  {observacion.contacto}
+                  <span className="truncate">{observacion.contacto}</span>
                 </span>
               </div>
             )}
             {observacion.correo && (
-              <div>
-                <span className="text-[11px] text-muted-foreground font-semibold block uppercase">
+              <div className="min-w-0">
+                <span className="text-[11px] text-muted-foreground font-semibold block">
                   Correo Electrónico
                 </span>
-                <span className="font-medium text-foreground flex items-center gap-1 mt-0.5 truncate" title={observacion.correo}>
+                <span className="font-medium text-foreground flex items-center gap-1.5 mt-0.5 min-w-0" title={observacion.correo}>
                   <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  {observacion.correo}
+                  <span className="truncate">{observacion.correo}</span>
                 </span>
               </div>
             )}
@@ -242,11 +242,11 @@ export function ModalProcesarObservacion({
           <div className="bg-muted/30 p-3.5 rounded-lg border border-border/50 space-y-1">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <FileText className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider">
+              <span className="text-[11px] font-semibold tracking-wider">
                 Descripción / Justificación de la propuesta
               </span>
             </div>
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
               {desglose.descripcion || (
                 <span className="italic text-muted-foreground">Sin descripción detallada registrada.</span>
               )}
@@ -260,7 +260,7 @@ export function ModalProcesarObservacion({
                 <XCircle className="w-4 h-4 shrink-0" />
                 <span>Motivo del Rechazo Emitido</span>
               </div>
-              <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed pl-5.5 font-medium">
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed pl-5.5 font-medium">
                 {desglose.motivoRechazo}
               </p>
             </div>

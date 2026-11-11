@@ -34,19 +34,18 @@ export function VistaProgresoGeneralPp({
   horasAcumuladas = 0,
 }: VistaProgresoGeneralPpProps) {
 
-  // Horas convalidadas / aprobadas (sumatoria de asignaciones completadas)
-  const horasAprobadasTotales =
-    horasAcumuladas ||
-    asignaciones.reduce((acumulado, asig) => {
-      if (asig.estado === 'COMPLETADO' || asig.estado === 'APROBADO') {
-        return acumulado + (asig.horasCompletadas || asig.horasAsignadas || 0);
-      }
-      return acumulado;
-    }, 0);
+  // Horas convalidadas / aprobadas (sumatoria de asignaciones aprobadas con aval de Subdecanato)
+  const horasSumadasAsignaciones = asignaciones.reduce((acumulado, asig) => {
+    if (asig.estado === 'COMPLETADO' || asig.estado === 'APROBADO') {
+      return acumulado + (asig.horasCompletadas || asig.horasAsignadas || 0);
+    }
+    return acumulado;
+  }, 0);
+  const horasAprobadasTotales = Math.max(horasAcumuladas, horasSumadasAsignaciones);
 
   // Horas actualmente en curso
   const horasEnCursoTotales = asignaciones.reduce((acumulado, asig) => {
-    if (asig.estado !== 'COMPLETADO' && asig.estado !== 'CANCELADO') {
+    if (asig.estado === 'EN_CURSO') {
       return acumulado + (asig.horasAsignadas || 0);
     }
     return acumulado;
@@ -165,7 +164,7 @@ export function VistaProgresoGeneralPp({
               </CardDescription>
             </div>
             <span className="text-sm font-bold text-primary">
-              {horasAprobadasTotales} / {horasRequeridas}h ({porcentajeAvance}%)
+              {porcentajeAvance}% ({horasAprobadasTotales} / {horasRequeridas} h)
             </span>
           </div>
         </CardHeader>
@@ -201,7 +200,10 @@ export function VistaProgresoGeneralPp({
 
         <div className="grid grid-cols-1 gap-4">
           {asignaciones.map((asig, indice) => {
-            const horasValidadasPractica = asig.horasCompletadas || 0;
+            const esAprobadoPractica = asig.estado === 'APROBADO' || asig.estado === 'COMPLETADO';
+            const horasValidadasPractica = esAprobadoPractica
+              ? (asig.horasCompletadas || asig.horasAsignadas || 0)
+              : 0;
             const numeroPractica = asignaciones.length - indice;
 
             return (

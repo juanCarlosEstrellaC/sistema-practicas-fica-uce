@@ -310,8 +310,9 @@ describe('TarjetaPracticaEstudiante - Validaciones de Documentos 4, 5, 6 y Aval'
     // No debe decir "Horas Aprobadas" porque el aval aún no se emitió
     expect(screen.queryByText('Horas Aprobadas')).not.toBeInTheDocument();
 
-    // Debe mostrar "Horas en Validación" con su subtítulo de revisión por CPP
+    // Debe mostrar "Horas en Validación" en 0h con su subtítulo de revisión por CPP
     expect(screen.getByText('Horas en Validación')).toBeInTheDocument();
+    expect(screen.getByText('0h')).toBeInTheDocument();
     expect(screen.getByText('En revisión por CPP • Aval pendiente')).toBeInTheDocument();
 
     // Debe mostrar la alerta informativa de documentos entregados para el estudiante
@@ -320,8 +321,8 @@ describe('TarjetaPracticaEstudiante - Validaciones de Documentos 4, 5, 6 y Aval'
       screen.getByText('Sus documentos de finalización están en revisión por parte de la Coordinación de Prácticas.')
     ).toBeInTheDocument();
 
-    // En la cabecera debe indicar que las horas están en validación
-    expect(screen.getByText(/240 \/ 240h \(en validación\)/i)).toBeInTheDocument();
+    // En la cabecera debe indicar 0 / 240h (en validación) hasta la emisión del Aval
+    expect(screen.getByText(/0 \/ 240h \(en validación\)/i)).toBeInTheDocument();
   });
 
   it('debe mostrar Horas Aprobadas y aval cuando el aval ya fue generado y emitido', () => {
@@ -360,9 +361,84 @@ describe('TarjetaPracticaEstudiante - Validaciones de Documentos 4, 5, 6 y Aval'
 
     // Ahora sí debe decir "Horas Aprobadas" y el subtítulo con Aval oficial
     expect(screen.getByText('Horas Aprobadas')).toBeInTheDocument();
+    expect(screen.getAllByText('240h')).toHaveLength(2);
     expect(screen.getByText('Validadas y acreditadas con Aval')).toBeInTheDocument();
+    expect(screen.getByText(/240 \/ 240h/i)).toBeInTheDocument();
 
     // En cabecera debe decir Estado: Práctica Culminada y Aprobada
     expect(screen.getByText('Estado: Práctica Culminada y Aprobada')).toBeInTheDocument();
+  });
+
+  it('debe bloquear la Carta de Asignación y no mostrar Ver/Descargar si el DC aún no la emite (fase ASIGNACION)', () => {
+    const refsInput = { current: {} };
+    const asignacionEnFaseAsignacionSinCarta: AsignacionDto = {
+      ...asignacionBase,
+      fase: 'ASIGNACION',
+      cartaAsignacionEnviada: false,
+    };
+
+    render(
+      <TarjetaPracticaEstudiante
+        asig={asignacionEnFaseAsignacionSinCarta}
+        numeroPractica={1}
+        estaColapsado={false}
+        documentos={[]}
+        subiendoDoc={{}}
+        onAlternarColapso={vi.fn()}
+        onSubirArchivo={vi.fn()}
+        onDescargar={vi.fn()}
+        referenciasInput={refsInput}
+      />
+    );
+
+    // Carta de Asignación debe mostrar mensaje de pendiente de emisión por DC
+    expect(
+      screen.getByText(/Pendiente de emisión y firma por la Dirección de Carrera/i)
+    ).toBeInTheDocument();
+
+    // No debe haber botón de Ver para Carta de Asignación (ni para ningún documento puesto que ninguno está emitido)
+    expect(screen.queryByRole('button', { name: /Ver/i })).not.toBeInTheDocument();
+
+    // Debe mostrar botón Bloqueado para la Carta de Asignación
+    const botonesBloqueados = screen.getAllByRole('button', { name: /Bloqueado/i });
+    expect(botonesBloqueados.length).toBeGreaterThanOrEqual(1);
+
+    // Tooltip debe indicar que estará disponible cuando DC remita la carta
+    const botonCartaBloqueado = botonesBloqueados.find((b) =>
+      b.getAttribute('title')?.includes('Dirección de Carrera emita y remita la carta')
+    );
+    expect(botonCartaBloqueado).toBeDefined();
+  });
+
+  it('debe habilitar Ver y Descargar para la Carta de Asignación únicamente cuando el DC la envía (cartaAsignacionEnviada = true)', () => {
+    const refsInput = { current: {} };
+    const asignacionConCartaEmitida: AsignacionDto = {
+      ...asignacionBase,
+      fase: 'ASIGNACION',
+      cartaAsignacionEnviada: true,
+    };
+
+    render(
+      <TarjetaPracticaEstudiante
+        asig={asignacionConCartaEmitida}
+        numeroPractica={1}
+        estaColapsado={false}
+        documentos={[]}
+        subiendoDoc={{}}
+        onAlternarColapso={vi.fn()}
+        onSubirArchivo={vi.fn()}
+        onDescargar={vi.fn()}
+        referenciasInput={refsInput}
+      />
+    );
+
+    // No debe mostrar la advertencia de pendiente por DC
+    expect(
+      screen.queryByText(/Pendiente de emisión y firma por la Dirección de Carrera/i)
+    ).not.toBeInTheDocument();
+
+    // Debe mostrar los botones Ver y Descargar para la Carta de Asignación
+    expect(screen.getByRole('button', { name: /Ver/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Descargar/i })).toBeInTheDocument();
   });
 });

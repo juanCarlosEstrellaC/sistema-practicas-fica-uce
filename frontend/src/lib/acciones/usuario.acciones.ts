@@ -65,6 +65,29 @@ export async function obtenerUsuariosPaginadosAccion({
   }
 }
 
+export async function obtenerUsuarioPorIdAccion(
+  id: number | string
+): Promise<UsuarioDto | null> {
+  try {
+    const cabeceras = await obtenerCabecerasAutenticacion();
+    const respuesta = await fetch(`${URL_BACKEND}/usuarios/${id}`, {
+      method: 'GET',
+      headers: cabeceras,
+      cache: 'no-store',
+    });
+
+    if (!respuesta.ok) {
+      return null;
+    }
+
+    const resultado = await respuesta.json();
+    return (resultado.data as UsuarioDto) || null;
+  } catch (error) {
+    console.error('Error en obtenerUsuarioPorIdAccion:', error);
+    return null;
+  }
+}
+
 export async function obtenerEstadisticasUsuariosAccion(): Promise<{
   total: number;
   estudiantes: number;

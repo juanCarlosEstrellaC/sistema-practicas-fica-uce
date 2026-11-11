@@ -5,7 +5,6 @@ import com.uce.api_pp_uce.dtos.pp.DocumentoPortafolioDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoResubirDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoRevisarDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoSubirDto;
-import com.uce.api_pp_uce.entities.Usuario;
 import com.uce.api_pp_uce.enums.pp.EstadoDocumento;
 import com.uce.api_pp_uce.enums.pp.TipoDocumento;
 import com.uce.api_pp_uce.excepciones.ManejadorExcepcionesGlobal;
@@ -29,7 +28,6 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;

@@ -154,6 +154,9 @@ public class ConvenioServiceImpl implements ConvenioService {
 
         Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
                 .toAbsolutePath().normalize();
+        if (!Files.exists(carpetaBase) && Files.exists(Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos"))) {
+            carpetaBase = Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos").toAbsolutePath().normalize();
+        }
         Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
 
         if (!filePath.startsWith(carpetaBase)) {
@@ -161,11 +164,15 @@ public class ConvenioServiceImpl implements ConvenioService {
         }
 
         if (!Files.exists(filePath)) {
-            Path posible = carpetaBase.resolve("practicas/convenios")
-                    .resolve(Paths.get(rutaLimpia).getFileName()).normalize().toAbsolutePath();
-            if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
-                filePath = posible;
-            } else {
+            String nombreArchivoPlano = Paths.get(rutaLimpia).getFileName().toString();
+            for (String sub : List.of("practicas/convenios", "convenios")) {
+                Path posible = carpetaBase.resolve(sub).resolve(nombreArchivoPlano).normalize().toAbsolutePath();
+                if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
+                    filePath = posible;
+                    break;
+                }
+            }
+            if (!Files.exists(filePath)) {
                 throw new RecursoNoEncontradoException("El archivo físico del convenio no existe en el servidor: " + filePath.getFileName());
             }
         }

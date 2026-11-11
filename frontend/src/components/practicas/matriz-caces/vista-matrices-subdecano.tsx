@@ -20,11 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  FileSpreadsheet,
   Search,
-  Download,
-  CheckCircle2,
-  AlertCircle,
   Building2,
   ArrowUpDown,
   ArrowUp,
@@ -36,8 +32,6 @@ import { BadgeEstadoMatrizCaces } from './badge-estado-matriz-caces';
 import { VistaMatrizCacesCarrera } from './vista-matriz-caces-carrera';
 import { obtenerMatricesCacesPorPeriodoAccion } from '@/lib/acciones/pp/matriz-caces.acciones';
 import { MatrizCacesDto } from '@/lib/tipos/pp/general-pp';
-import { adaptarUrlProxy } from '@/lib/utilidades/proxy-url';
-import { formatearNombreDescargaMatrizCaces } from '@/lib/utilidades/matriz-caces';
 
 interface VistaMatricesSubdecanoProps {
   periodoId: number | string;
@@ -161,12 +155,6 @@ export function VistaMatricesSubdecano({
         titulo="Matrices CACES de la Facultad"
         total={totalElementos}
         etiquetaTotal="Matrices por carrera"
-        metricasExtra={
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 inline-flex items-center gap-1">
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            Consolidado Institucional
-          </span>
-        }
       />
 
       {/* Barra de Filtros */}
@@ -335,30 +323,6 @@ export function VistaMatricesSubdecano({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <a
-                          href={
-                            m.archivoFirmadoUrl
-                              ? adaptarUrlProxy(m.archivoFirmadoUrl)
-                              : `/api/proxy/matrices-caces/${m.id}/excel`
-                          }
-                          download={formatearNombreDescargaMatrizCaces(
-                            nombreCarrera,
-                            periodoNombre || m.periodoNombre,
-                            m.estado,
-                            m.archivoFirmadoUrl
-                          )}
-                          title={m.archivoFirmadoUrl ? 'Descargar matriz firmada' : 'Descargar Excel oficial CACES'}
-                          className="inline-flex"
-                        >
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 border-emerald-600/30 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-500 shadow-2xs hover:shadow-xs transition-all duration-200 active:scale-95 group"
-                          >
-                            <Download className="w-4 h-4 group-hover:translate-y-0.5 group-hover:scale-110 transition-transform duration-200" />
-                          </Button>
-                        </a>
-
                         <Button
                           variant="outline"
                           size="sm"

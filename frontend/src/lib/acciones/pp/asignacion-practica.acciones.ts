@@ -359,6 +359,7 @@ export async function emitirCartaAsignacionAccion(
       };
     }
 
+    revalidatePath('/dashboard');
     revalidatePath('/dashboard/practicas/estudiantes');
     revalidatePath('/dashboard/practicas/mi-practica');
     revalidatePath('/dashboard/practicas');

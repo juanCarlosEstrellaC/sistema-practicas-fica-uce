@@ -16,13 +16,17 @@ export default async function PaginaMiPractica() {
   const [resAsignaciones, documentos] = await Promise.all([
     obtenerAsignacionesPracticasAccion({
       estudianteId,
+      requiereCarta: true,
       page: 0,
       size: 100,
     }),
     obtenerDocumentosPorEstudianteAccion(estudianteId),
   ]);
 
-  const asignaciones = resAsignaciones.content || [];
+  // UNICAMENTE cuando se envie la carta de asignacion ahi el estudiante recien puede ver la asignacion de pp, antes no.
+  const asignaciones = (resAsignaciones.content || []).filter(
+    (asig) => asig.cartaAsignacionEnviada !== false
+  );
 
   return (
     <div className="space-y-6">

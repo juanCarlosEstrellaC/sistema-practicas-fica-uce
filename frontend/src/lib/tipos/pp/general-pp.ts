@@ -206,6 +206,7 @@ export interface AsignacionDto {
   reunionRealizada: boolean;
   periodoAcademicoId: string;
   validadoSiiu?: boolean;
+  cartaAsignacionEnviada?: boolean;
   sectorReceptora?: string;
   tipoIdentificacion?: string;
   observacionesCaces?: string;

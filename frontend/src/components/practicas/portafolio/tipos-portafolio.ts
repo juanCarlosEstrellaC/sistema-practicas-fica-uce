@@ -1,4 +1,8 @@
 import { DocumentoDto, FaseActualPractica, TipoDocumento } from '@/lib/tipos/pp/general-pp';
+import {
+  obtenerUrlPrevisualizacionCartaAsignacionPp,
+  obtenerUrlPrevisualizacionDocumentoPortafolio,
+} from '@/lib/utilidades/proxy-url';
 
 export type EstadoDocumentoPortafolio = 'pendiente' | 'subido' | 'aprobado' | 'rechazado';
 
@@ -66,6 +70,11 @@ export function generarConfiguracionPortafolio(
   const puedeVerObservacionesTutoria =
     !esVistaEstudiante && (rol === 'TUTOR_ACADEMICO' || rol === 'COORDINADOR_PRACTICAS');
 
+  const resolverUrl = (d?: DocumentoDto) => {
+    if (!d || !d.url) return undefined;
+    return d.id ? obtenerUrlPrevisualizacionDocumentoPortafolio(d.id) : d.url;
+  };
+
   return [
     {
       id: 'doc_cv',
@@ -77,7 +86,7 @@ export function generarConfiguracionPortafolio(
       comentario: docCv?.observacion,
       requerido: true,
       etapaMinima: 'CONVOCATORIA',
-      url: docCv?.url,
+      url: resolverUrl(docCv),
       dbId: docCv?.id,
       archivoNombre: docCv?.nombre,
     },
@@ -91,20 +100,24 @@ export function generarConfiguracionPortafolio(
       comentario: docCedula?.observacion,
       requerido: true,
       etapaMinima: 'CONVOCATORIA',
-      url: docCedula?.url,
+      url: resolverUrl(docCedula),
       dbId: docCedula?.id,
       archivoNombre: docCedula?.nombre,
     },
     {
       id: 'doc_asignacion',
       nombre: '3. Carta de Asignación',
-      descripcion: 'Documento oficial generado por el Coordinador de Prácticas',
+      descripcion: 'Documento oficial generado por el Director de Carrera',
       tipo: 'CARTA_ASIGNACION',
       estado: obtenerEstadoLocal('CARTA_ASIGNACION'),
       fechaSubida: formatearFechaIsoCorta(docCarta?.fechaSubida),
       requerido: true,
       etapaMinima: 'ASIGNACION',
-      url: docCarta?.url,
+      url:
+        resolverUrl(docCarta) ||
+        (docCarta?.asignacionId
+          ? obtenerUrlPrevisualizacionCartaAsignacionPp(docCarta.asignacionId)
+          : undefined),
       dbId: docCarta?.id,
       archivoNombre: docCarta?.nombre,
     },
@@ -118,7 +131,7 @@ export function generarConfiguracionPortafolio(
       comentario: puedeVerObservacionesTutoria ? docSeguimiento?.observacion : undefined,
       requerido: true,
       etapaMinima: 'DESARROLLO',
-      url: docSeguimiento?.url,
+      url: resolverUrl(docSeguimiento),
       dbId: docSeguimiento?.id,
       archivoNombre: docSeguimiento?.nombre,
     },
@@ -132,7 +145,7 @@ export function generarConfiguracionPortafolio(
       comentario: puedeVerObservacionesTutoria ? docInforme?.observacion : undefined,
       requerido: true,
       etapaMinima: 'DESARROLLO',
-      url: docInforme?.url,
+      url: resolverUrl(docInforme),
       dbId: docInforme?.id,
       archivoNombre: docInforme?.nombre,
     },
@@ -146,7 +159,7 @@ export function generarConfiguracionPortafolio(
       comentario: puedeVerObservacionesTutoria ? docCertificado?.observacion : undefined,
       requerido: true,
       etapaMinima: 'DESARROLLO',
-      url: docCertificado?.url,
+      url: resolverUrl(docCertificado),
       dbId: docCertificado?.id,
       archivoNombre: docCertificado?.nombre,
     },
@@ -166,7 +179,7 @@ export function generarConfiguracionPortafolio(
       fechaSubida: formatearFechaIsoCorta(docAval?.fechaSubida),
       requerido: true,
       etapaMinima: 'FINALIZACION',
-      url: docAval?.url,
+      url: resolverUrl(docAval),
       dbId: docAval?.id,
       archivoNombre: docAval?.nombre,
     },

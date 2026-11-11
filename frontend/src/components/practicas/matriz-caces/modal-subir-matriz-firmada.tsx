@@ -31,7 +31,6 @@ import {
   subirArchivoFirmadoMatrizCacesAccion,
 } from '@/lib/acciones/pp/matriz-caces.acciones';
 import { EstadoMatrizCaces } from '@/lib/tipos/pp/general-pp';
-import { adaptarUrlProxy } from '@/lib/utilidades/proxy-url';
 import { formatearNombreDescargaMatrizCaces } from '@/lib/utilidades/matriz-caces';
 
 export interface ModalSubirMatrizFirmadaProps {
@@ -122,11 +121,9 @@ export function ModalSubirMatrizFirmada({
         ? 'ENVIADA_A_SUBDECANO'
         : undefined;
 
-    if (archivoPrevioUrl) {
-      enlace.href = adaptarUrlProxy(archivoPrevioUrl);
-    } else {
-      enlace.href = `/api/proxy/matrices-caces/${matrizId}/excel?t=${Date.now()}`;
-    }
+    enlace.href = `/api/proxy/matrices-caces/${matrizId}/excel?t=${
+      archivoPrevioUrl ? encodeURIComponent(archivoPrevioUrl) : Date.now()
+    }`;
     enlace.download = formatearNombreDescargaMatrizCaces(
       carreraNombre,
       periodoNombre,
@@ -210,12 +207,12 @@ export function ModalSubirMatrizFirmada({
                 {carreraCodigo && (
                   <div>
                     <span className="font-semibold text-foreground">Código carrera: </span>
-                    <span className="font-mono text-muted-foreground">{carreraCodigo}</span>
+                    <span className="text-muted-foreground">{carreraCodigo}</span>
                   </div>
                 )}
                 <div>
                   <span className="font-semibold text-foreground">Código IES: </span>
-                  <span className="font-mono text-muted-foreground">1005 (UCE)</span>
+                  <span className="text-muted-foreground">1005 (UCE)</span>
                 </div>
                 <div className="pt-1 text-[11px] text-muted-foreground border-t border-border/50">
                   {esSubdecano
@@ -408,7 +405,7 @@ export function ModalSubirMatrizFirmada({
                   Vista previa de la matriz firmada
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1 max-w-md">
-                  En el panel izquierdo seleccione &ldquo;Sin FirmaEC&rdquo;, descargue la matriz oficial en Excel y suba el archivo con las firmas correspondientes para previsualizarlo aquí.
+                  En el panel izquierdo descargue la matriz oficial en Excel y suba el archivo con las firmas correspondientes.
                 </p>
               </div>
             )}

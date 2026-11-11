@@ -102,21 +102,32 @@ export function Portafolio({
     }
   }, [propDocumentos, cargarDocumentos]);
 
+  const documentosDeAsignacion = useMemo(() => {
+    if (!asignacionId) return documentos;
+    return documentos.filter(
+      (d) =>
+        d.tipo === 'CV' ||
+        d.tipo === 'DOCUMENTO_IDENTIDAD' ||
+        !d.asignacionId ||
+        String(d.asignacionId) === String(asignacionId)
+    );
+  }, [documentos, asignacionId]);
+
   const avalEmitido = useMemo(() => {
-    const docAval = documentos.find((d) => d.tipo === 'AVAL');
+    const docAval = documentosDeAsignacion.find((d) => d.tipo === 'AVAL');
     return Boolean(docAval && docAval.url && docAval.url !== '');
-  }, [documentos]);
+  }, [documentosDeAsignacion]);
 
   const documentosPortafolio = useMemo(() => {
     return generarConfiguracionPortafolio(
-      documentos,
+      documentosDeAsignacion,
       asignacionEstado,
       !soloLectura,
       avalEmitido,
       validadoCpp,
       rolNormalizado
     );
-  }, [documentos, asignacionEstado, soloLectura, avalEmitido, validadoCpp, rolNormalizado]);
+  }, [documentosDeAsignacion, asignacionEstado, soloLectura, avalEmitido, validadoCpp, rolNormalizado]);
 
   const estaDocumentoDisponible = useCallback(
     (doc: DocumentoPortafolioItem) => {

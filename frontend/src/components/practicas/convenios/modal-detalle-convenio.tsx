@@ -27,7 +27,11 @@ export function ModalDetalleConvenio({
 }: ModalDetalleConvenioProps) {
   if (!convenio) return null;
 
-  const urlDocumentoAdaptada = adaptarUrlProxy(convenio.urlDocumento || convenio.documentoUrl);
+  const urlOriginal = convenio.urlDocumento || convenio.documentoUrl;
+  const urlDocumento = urlOriginal
+    ? (convenio.id ? `/convenios/${convenio.id}/preview` : urlOriginal)
+    : undefined;
+  const urlDocumentoAdaptada = adaptarUrlProxy(urlDocumento);
 
   return (
     <Dialog open={abierto} onOpenChange={(ab) => !ab && alCerrar()}>

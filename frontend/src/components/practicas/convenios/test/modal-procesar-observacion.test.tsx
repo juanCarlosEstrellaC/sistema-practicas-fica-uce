@@ -45,6 +45,24 @@ describe('ModalProcesarObservacion', () => {
     expect(screen.getByText('Carlos Mendoza')).toBeInTheDocument();
   });
 
+  it('debe mantener el padding simetrico en el contenido del dialogo sin pr-2 ni mr-6 redundante', () => {
+    render(
+      <ModalProcesarObservacion
+        observacion={observacionMock}
+        abierto={true}
+        esSubdecano={false}
+        alCerrar={vi.fn()}
+      />
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveClass('p-6');
+    expect(dialog).not.toHaveClass('pr-2');
+
+    const titulo = screen.getByText('Observación de Anulación').closest('div.flex');
+    expect(titulo).not.toHaveClass('mr-6');
+  });
+
   it('no debe renderizar nada si abierto es false', () => {
     const { container } = render(
       <ModalProcesarObservacion

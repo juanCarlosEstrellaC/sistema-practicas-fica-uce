@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.controllers.pp;
 
 import tools.jackson.databind.ObjectMapper;
+import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.UsuarioResumenDto;
 import com.uce.api_pp_uce.dtos.pp.AsignacionPracticaDetalleDto;
 import com.uce.api_pp_uce.dtos.pp.HorasAsignacionDto;
@@ -30,6 +31,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -254,5 +257,33 @@ class AsignacionPracticasControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.exito").value(true))
                 .andExpect(jsonPath("$.mensaje").value("Práctica preprofesional reprobada exitosamente"));
+    }
+
+    @Test
+    @DisplayName("GET /asignaciones-practicas/{id}/carta-asignacion/preview - Debe retornar 200 OK con PDF inline")
+    void vistaPreviaCartaAsignacion_Exitoso() throws Exception {
+        byte[] pdfBytes = "PDF_MOCK_CONTENT".getBytes();
+        ArchivoDescargaDto descargaDto = new ArchivoDescargaDto(pdfBytes, "Carta_100.pdf", "application/pdf");
+        when(asignacionPracticaService.obtenerCartaAsignacionDescarga(100L)).thenReturn(descargaDto);
+
+        mockMvc.perform(get("/asignaciones-practicas/100/carta-asignacion/preview"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"Carta_100.pdf\""))
+                .andExpect(content().bytes(pdfBytes));
+    }
+
+    @Test
+    @DisplayName("GET /asignaciones-practicas/{id}/carta-asignacion/descargar - Debe retornar 200 OK con PDF attachment")
+    void descargarCartaAsignacion_Exitoso() throws Exception {
+        byte[] pdfBytes = "PDF_MOCK_CONTENT".getBytes();
+        ArchivoDescargaDto descargaDto = new ArchivoDescargaDto(pdfBytes, "Carta_100.pdf", "application/pdf");
+        when(asignacionPracticaService.obtenerCartaAsignacionDescarga(100L)).thenReturn(descargaDto);
+
+        mockMvc.perform(get("/asignaciones-practicas/100/carta-asignacion/descargar"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"Carta_100.pdf\""))
+                .andExpect(content().bytes(pdfBytes));
     }
 }

@@ -240,7 +240,7 @@ export function DisenioSubdecano({ metricas }: PropiedadesDisenioSubdecano) {
               Vinculación con la Sociedad
             </h2>
             <p className="text-xs text-muted-foreground">
-              Proyectos comunitarios, impacto social y horas de servicio en territorio.
+              Proyectos comunitarios, impacto social y horas de servicio comunitario.
             </p>
           </div>
         </div>
@@ -274,7 +274,7 @@ export function DisenioSubdecano({ metricas }: PropiedadesDisenioSubdecano) {
           <TarjetaMetricaWireframe
             valor={vcsEstudiantesParticipando}
             etiqueta="Estudiantes participando"
-            descripcion="Asignados y activos en territorio"
+            descripcion="Asignados a proyectos comunitarios"
             icono={Users}
             varianteColor="morado"
             href="/dashboard/vinculacion/asignaciones-existentes"

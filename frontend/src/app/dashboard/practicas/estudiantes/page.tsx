@@ -60,11 +60,12 @@ export default async function PaginaEstudiantes({ searchParams }: PaginaEstudian
     );
 
   // 2. Obtener datos de asignaciones y carreras en paralelo
-  const [paginaAsignaciones, respuestaCarreras] = periodoAcademicoId
+  const [paginaAsignacionesRaw, respuestaCarreras] = periodoAcademicoId
     ? await Promise.all([
         obtenerAsignacionesPracticasAccion({
           carreraId,
           tutorId,
+          requiereCarta: esTutor ? true : undefined,
           periodoId: Number(periodoAcademicoId),
           estado,
           fase,
@@ -88,6 +89,22 @@ export default async function PaginaEstudiantes({ searchParams }: PaginaEstudian
         },
         null,
       ];
+
+  const paginaAsignaciones = esTutor
+    ? (() => {
+        const filtradas = (paginaAsignacionesRaw?.content || []).filter(
+          (asig) => asig.cartaAsignacionEnviada !== false
+        );
+        const descartadas = (paginaAsignacionesRaw?.content?.length || 0) - filtradas.length;
+        const nuevoTotal = Math.max(0, (paginaAsignacionesRaw?.totalElements || 0) - descartadas);
+        return {
+          ...paginaAsignacionesRaw,
+          content: filtradas,
+          totalElements: nuevoTotal,
+          empty: filtradas.length === 0,
+        };
+      })()
+    : paginaAsignacionesRaw;
 
   const carreras = (respuestaCarreras?.content || []) as any[];
 

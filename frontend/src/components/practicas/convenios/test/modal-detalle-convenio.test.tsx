@@ -49,4 +49,27 @@ describe('ModalDetalleConvenio (Componente Modular UI)', () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('debe mostrar la vista vacia y no renderizar iframe cuando el convenio no tiene urlDocumento', () => {
+    const convenioSinPdf: ConvenioDto = {
+      ...convenioMock,
+      urlDocumento: undefined,
+      documentoUrl: undefined,
+      nombreDocumento: 'Convenio_Google_Firmado.pdf',
+    };
+
+    render(
+      <ModalDetalleConvenio
+        convenio={convenioSinPdf}
+        abierto={true}
+        alCerrar={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText('No se ha subido ningún documento para este convenio.')
+    ).toBeInTheDocument();
+    expect(screen.queryByTitle(/Documento del convenio/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Expandir/i })).not.toBeInTheDocument();
+  });
 });

@@ -7,7 +7,6 @@ import {
   Users,
   CheckCircle2,
   ArrowUpRight,
-  Sparkles,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,7 +27,7 @@ export function DisenioEstudianteProceso({ datosEstudiante }: PropiedadesDisenio
 
   // Cálculos de Vinculación
   const horasVinculacionComp = datosEstudiante.horasVinculacionCompletadas || 0
-  const horasVinculacionAsig = datosEstudiante.horasVinculacionAsignadas || 80
+  const horasVinculacionAsig = datosEstudiante.horasVinculacionAsignadas || 160
   const horasVinculacionFaltantes = Math.max(0, horasVinculacionAsig - horasVinculacionComp)
   const pctVinculacion = Math.min(100, Math.round((horasVinculacionComp / (horasVinculacionAsig || 1)) * 100))
 
@@ -153,53 +152,11 @@ export function DisenioEstudianteProceso({ datosEstudiante }: PropiedadesDisenio
               </p>
             </div>
 
-            {/* Hitos del Flujo de Prácticas del Estudiante */}
-            <div className="grid grid-cols-4 gap-2 pt-1 text-center">
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.tienePractica
-                  ? "bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Asignación</span>
-                <span className="text-xs font-bold">{datosEstudiante.tienePractica ? 'Sí' : 'Pendiente'}</span>
-              </div>
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.estadoPractica === 'EN_CURSO' || datosEstudiante.estadoPractica === 'COMPLETADO'
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Desarrollo</span>
-                <span className="text-xs font-bold">{horasPracticaComp}h</span>
-              </div>
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.fasePractica === 'EVALUACION' || datosEstudiante.estadoPractica === 'COMPLETADO'
-                  ? "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Evaluación</span>
-                <span className="text-xs font-bold">{datosEstudiante.fasePractica || 'En espera'}</span>
-              </div>
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.estadoPractica === 'COMPLETADO'
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Aval Oficial</span>
-                <span className="text-xs font-bold">{datosEstudiante.estadoPractica === 'COMPLETADO' ? 'Emitido' : 'Pendiente'}</span>
-              </div>
-            </div>
           </div>
 
           {/* Pie del Panel */}
           <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
             <span>Fase actual: <strong className="text-foreground">{datosEstudiante.fasePractica || 'No iniciada'}</strong></span>
-            <Badge variant="outline" className="text-[10px] py-0 px-2 border-border/60">
-              {datosEstudiante.estadoPractica || 'SIN ASIGNAR'}
-            </Badge>
           </div>
         </div>
 
@@ -248,82 +205,16 @@ export function DisenioEstudianteProceso({ datosEstudiante }: PropiedadesDisenio
                 )}
               </p>
             </div>
-
-            {/* Hitos del Flujo de Vinculación del Estudiante */}
-            <div className="grid grid-cols-4 gap-2 pt-1 text-center">
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.tieneVinculacion
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Proyecto</span>
-                <span className="text-xs font-bold">{datosEstudiante.tieneVinculacion ? 'Asignado' : 'Pendiente'}</span>
-              </div>
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.estadoVinculacion === 'EN_CURSO' || datosEstudiante.estadoVinculacion === 'APROBADO' || datosEstudiante.estadoVinculacion === 'COMPLETADO'
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Ejecución</span>
-                <span className="text-xs font-bold">{horasVinculacionComp}h</span>
-              </div>
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.faseVinculacion === 'EVALUACION' || datosEstudiante.estadoVinculacion === 'APROBADO' || datosEstudiante.estadoVinculacion === 'COMPLETADO'
-                  ? "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Reportes</span>
-                <span className="text-xs font-bold">{datosEstudiante.faseVinculacion || 'En espera'}</span>
-              </div>
-              <div className={cn(
-                "p-2 rounded-lg border",
-                datosEstudiante.estadoVinculacion === 'APROBADO' || datosEstudiante.estadoVinculacion === 'COMPLETADO'
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted/40 border-border/40 text-muted-foreground"
-              )}>
-                <span className="text-[10px] block font-medium">Certificado</span>
-                <span className="text-xs font-bold">{(datosEstudiante.estadoVinculacion === 'APROBADO' || datosEstudiante.estadoVinculacion === 'COMPLETADO') ? 'Acreditado' : 'Pendiente'}</span>
-              </div>
-            </div>
           </div>
 
           {/* Pie del Panel */}
           <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
             <span>Fase actual: <strong className="text-foreground">{datosEstudiante.faseVinculacion || 'No iniciada'}</strong></span>
-            <Badge variant="outline" className="text-[10px] py-0 px-2 border-border/60">
-              {datosEstudiante.estadoVinculacion || 'SIN ASIGNAR'}
-            </Badge>
           </div>
         </div>
       </div>
 
-      {/* 3. ACCESOS DIRECTOS DEL ESTUDIANTE */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl border border-border/60 bg-card">
-        <span className="text-xs font-semibold text-muted-foreground">Accesos Frecuentes:</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg hover:border-sky-500/40">
-            <Link href="/dashboard/practicas/mi-practica">
-              <Briefcase className="h-3.5 w-3.5 text-sky-500" />
-              <span>Mi Práctica</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg hover:border-emerald-500/40">
-            <Link href="/dashboard/vinculacion/mi-proyecto">
-              <Users className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Mi Proyecto de Vinculación</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg hover:border-primary/40">
-            <Link href="/dashboard/configuracion">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span>Mi Perfil y Cuenta</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
+
     </div>
   )
 }

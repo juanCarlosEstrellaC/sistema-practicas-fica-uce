@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import { obtenerUsuarioServidor } from '@/lib/acciones/cliente-servidor';
 import { obtenerAsignacionesPracticasAccion } from '@/lib/acciones/pp/asignacion-practica.acciones';
+import { obtenerUsuarioPorIdAccion } from '@/lib/acciones/usuario.acciones';
+import { obtenerCarreraPorIdAccion } from '@/lib/acciones/carrera.acciones';
 import { VistaProgresoGeneralPp } from '@/components/practicas/estudiante/vista-progreso-general-pp';
 
 export const metadata: Metadata = {
@@ -11,13 +13,32 @@ export const metadata: Metadata = {
 export default async function PaginaProgresoGeneralPp() {
   const usuario = await obtenerUsuarioServidor();
   const estudianteId = usuario?.id ? Number(usuario.id) : 0;
+  const carreraId = usuario?.carreraId ? Number(usuario.carreraId) : undefined;
 
-  const resAsignaciones = await obtenerAsignacionesPracticasAccion({
-    estudianteId,
-    page: 0,
-    size: 100,
-  });
-  const asignaciones = resAsignaciones.content || [];
+  const [resAsignaciones, usuarioActualizado, carrera] = await Promise.all([
+    obtenerAsignacionesPracticasAccion({
+      estudianteId,
+      requiereCarta: true,
+      page: 0,
+      size: 100,
+    }),
+    estudianteId ? obtenerUsuarioPorIdAccion(estudianteId) : Promise.resolve(null),
+    carreraId ? obtenerCarreraPorIdAccion(carreraId) : Promise.resolve(null),
+  ]);
+
+  const asignaciones = (resAsignaciones.content || []).filter(
+    (asig) => asig.cartaAsignacionEnviada !== false
+  );
+
+  const horasRequeridas =
+    usuarioActualizado?.horasRequeridas ||
+    carrera?.horasPractica ||
+    usuario?.horasRequeridas ||
+    240;
+  const horasAcumuladas =
+    usuarioActualizado?.horasAcumuladas ??
+    usuario?.horasAcumuladas ??
+    0;
 
   return (
     <div className="space-y-6">
@@ -32,8 +53,8 @@ export default async function PaginaProgresoGeneralPp() {
 
       <VistaProgresoGeneralPp
         asignaciones={asignaciones}
-        horasRequeridas={usuario?.horasRequeridas || 240}
-        horasAcumuladas={usuario?.horasAcumuladas || 0}
+        horasRequeridas={horasRequeridas}
+        horasAcumuladas={horasAcumuladas}
       />
     </div>
   );

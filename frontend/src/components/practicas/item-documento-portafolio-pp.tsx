@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Loader2,
   AlertCircle,
+  Clock,
 } from 'lucide-react';
 
 export interface ItemDocumentoPortafolioPpProps {
@@ -84,6 +85,8 @@ export function ItemDocumentoPortafolioPp({
     ? `Disponible en la fase de ${faseMinimaTexto}`
     : bloqueadoPorValidacionCpp
     ? 'Disponible una vez que el Coordinador de Prácticas valide el portafolio'
+    : tipo === 'CARTA_ASIGNACION'
+    ? 'Disponible una vez que la Dirección de Carrera emita y remita la carta de asignación oficial'
     : 'Documento no disponible';
 
   return (
@@ -101,7 +104,7 @@ export function ItemDocumentoPortafolioPp({
           <div
             className={cn(
               'h-9 w-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-              bloqueadoPorFase || bloqueadoPorValidacionCpp
+              estaBloqueado
                 ? 'bg-muted text-muted-foreground'
                 : esAprobado || (!subeEstudiante && tieneArchivo)
                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
@@ -112,7 +115,7 @@ export function ItemDocumentoPortafolioPp({
                 : 'bg-muted text-muted-foreground'
             )}
           >
-            {bloqueadoPorFase || bloqueadoPorValidacionCpp ? (
+            {estaBloqueado ? (
               <Lock className="h-4 w-4 opacity-60" />
             ) : (
               <FileText className="h-4 w-4" />
@@ -184,7 +187,14 @@ export function ItemDocumentoPortafolioPp({
             {bloqueadoPorValidacionCpp && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400 pt-0.5 flex items-center gap-1 font-medium">
                 <AlertCircle className="h-3 w-3 shrink-0" />
-                Cargado por Tutor Académico. Disponible para visualización cuando CPP valide el portafolio.
+                Cargado por Tutor Académico. Disponible para visualización cuando Coordinador de Prácticas valide el portafolio.
+              </p>
+            )}
+
+            {tipo === 'CARTA_ASIGNACION' && estaBloqueado && !bloqueadoPorFase && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 pt-0.5 flex items-center gap-1 font-medium">
+                <Clock className="h-3 w-3 shrink-0" />
+                Pendiente de emisión y firma por la Dirección de Carrera.
               </p>
             )}
 

@@ -263,7 +263,7 @@ describe('TablaEstudiantes (Componente Modular UI)', () => {
     expect(screen.getAllByText('No se encontraron asignaciones')[0]).toBeInTheDocument();
   });
 
-  it('debe renderizar botón de reenviar carta para DIRECTOR_CARRERA', () => {
+  it('no debe renderizar columna ni botones de acciones para DIRECTOR_CARRERA', () => {
     render(
       <TablaEstudiantes
         paginaAsignaciones={paginaAsignacionesPrueba as any}
@@ -271,7 +271,8 @@ describe('TablaEstudiantes (Componente Modular UI)', () => {
       />
     );
 
-    expect(screen.getAllByTitle('Reenviar Carta al Tutor Institucional')[0]).toBeInTheDocument();
+    expect(screen.queryByText('Acciones')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Reenviar Carta al Tutor Institucional')).not.toBeInTheDocument();
   });
 
   it('debe renderizar botón Cancelar para COORDINADOR_PRACTICAS en fase DESARROLLO en vez de editar y eliminar deshabilitados', () => {
@@ -434,6 +435,29 @@ describe('TablaEstudiantes (Componente Modular UI)', () => {
     expect(screen.getAllByText('No disponible').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('no debe mostrar asignaciones sin carta enviada cuando el rol es TUTOR_ACADEMICO', () => {
+    const asignacionSinCarta = {
+      ...paginaAsignacionesPrueba,
+      content: [
+        {
+          ...paginaAsignacionesPrueba.content[0],
+          cartaAsignacionEnviada: false,
+        },
+      ],
+      totalElements: 1,
+    };
+
+    render(
+      <TablaEstudiantes
+        paginaAsignaciones={asignacionSinCarta as any}
+        rol="TUTOR_ACADEMICO"
+      />
+    );
+
+    expect(screen.queryByText('Carlos Gomez')).not.toBeInTheDocument();
+    expect(screen.getAllByText('No se encontraron asignaciones')[0]).toBeInTheDocument();
+  });
+
   it('debe retirar la columna "Acciones" por completo cuando el filtro de fase es FINALIZACION', () => {
     mockFaseFiltro = 'FINALIZACION';
 
@@ -451,7 +475,7 @@ describe('TablaEstudiantes (Componente Modular UI)', () => {
     render(
       <TablaEstudiantes
         paginaAsignaciones={asignacionFinalizada as any}
-        rol="DIRECTOR_CARRERA"
+        rol="COORDINADOR_PRACTICAS"
       />
     );
 
@@ -476,7 +500,7 @@ describe('TablaEstudiantes (Componente Modular UI)', () => {
     render(
       <TablaEstudiantes
         paginaAsignaciones={asignacionFinalizada as any}
-        rol="DIRECTOR_CARRERA"
+        rol="COORDINADOR_PRACTICAS"
       />
     );
 

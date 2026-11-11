@@ -13,6 +13,9 @@ import { formatearFechaCorta } from '@/lib/utilidades/fechas';
 import {
   adaptarUrlProxy,
   obtenerUrlPrevisualizacionCartaAsignacionPp,
+  obtenerUrlDescargaCartaAsignacionPp,
+  obtenerUrlPrevisualizacionDocumentoPortafolio,
+  obtenerUrlDescargaDocumentoPortafolio,
 } from '@/lib/utilidades/proxy-url';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,9 +80,9 @@ const DOCUMENTOS_PROCESO_PP: ConfiguracionDocProcesoPp[] = [
   {
     tipo: 'CARTA_ASIGNACION',
     nombre: '3. Carta de Asignación',
-    descripcion: 'Documento oficial emitido y firmado por la Coordinación de Prácticas.',
+    descripcion: 'Documento oficial emitido y firmado por la Dirección de Carrera.',
     subeEstudiante: false,
-    emisorTexto: 'Generado por Coordinación',
+    emisorTexto: 'Generado por Dirección de Carrera',
     faseMinima: 'ASIGNACION',
     faseMinimaTexto: 'Asignación',
   },
@@ -124,7 +127,6 @@ export function TarjetaPracticaEstudiante({
   onDescargar,
   referenciasInput,
 }: TarjetaPracticaEstudianteProps) {
-  const horasValidadas = asig.horasCompletadas || 0;
   const horasAsignadas = asig.horasAsignadas || 0;
 
   const fasePractica = asig.fase || 'ASIGNACION';
@@ -140,15 +142,35 @@ export function TarjetaPracticaEstudiante({
       (asig.estado === 'APROBADO' || asig.estado === 'COMPLETADO' || avalDoc?.estado === 'APROBADO')
   );
 
+  // Carta de Asignación: únicamente disponible cuando el Director de Carrera la emite y envía
+  const docCarta = documentos.find(
+    (d) =>
+      d.tipo === 'CARTA_ASIGNACION' &&
+      (!d.asignacionId || String(d.asignacionId) === String(asig.id))
+  );
+
+  const cartaAsignacionDisponible = Boolean(
+    asig.cartaAsignacionEnviada || (docCarta && docCarta.url) || ordenFaseActual >= 2
+  );
+
   // La práctica se considera oficialmente culminada/aprobada si cuenta con su Aval emitido
   const esAprobado = avalDesbloqueado;
   const esCompletado = esAprobado;
+  // Únicamente cuando el estudiante recibe su Aval de terminación emitido por Subdecanato se validan sus horas
+  const horasValidadas = esAprobado
+    ? (asig.horasCompletadas || horasAsignadas)
+    : 0;
 
   const tutorNombreCompleto = asig.tutorAcademico
     ? `${asig.tutorAcademico.nombres} ${asig.tutorAcademico.apellidos}`
     : 'Por asignar';
 
-  const urlAval = avalDoc?.url || '';
+  const urlAval = avalDoc?.id
+    ? obtenerUrlPrevisualizacionDocumentoPortafolio(avalDoc.id)
+    : (avalDoc?.url || '');
+  const urlDescargaAval = avalDoc?.id
+    ? obtenerUrlDescargaDocumentoPortafolio(avalDoc.id)
+    : urlAval;
   const nombreAval =
     avalDoc?.nombre || `Aval_Practicas_${asig.institucion || 'Institucion'}.pdf`.replace(/\s+/g, '_');
 
@@ -236,7 +258,7 @@ export function TarjetaPracticaEstudiante({
             fase={asig.fase}
             estado={asig.estado}
             validadoCpp={Boolean(asig.validadoCpp)}
-            tieneCarta={ordenFaseActual >= 2 || documentos.some((d) => d.tipo === 'CARTA_ASIGNACION')}
+            tieneCarta={cartaAsignacionDisponible}
             rol="ESTUDIANTE"
           />
 
@@ -284,23 +306,36 @@ export function TarjetaPracticaEstudiante({
                   .filter((d) => d.tipo === configDoc.tipo)
                   .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
 
+                const esDocGeneralEstudiante =
+                  configDoc.tipo === 'CV' || configDoc.tipo === 'DOCUMENTO_IDENTIDAD';
+
                 const docCargado =
-                  docsTipo.find((d) => d.asignacionId && String(d.asignacionId) === String(asig.id)) ||
-                  docsTipo.find((d) => !d.asignacionId) ||
-                  docsTipo[0];
+                  docsTipo.find(
+                    (d) => d.asignacionId && String(d.asignacionId) === String(asig.id)
+                  ) || (esDocGeneralEstudiante ? docsTipo.find((d) => !d.asignacionId) || docsTipo[0] : undefined);
 
                 const ordenMinimoDoc = ORDEN_FASES[configDoc.faseMinima] ?? 0;
                 const bloqueadoPorFase = ordenFaseActual < ordenMinimoDoc;
 
-                const esDocValidacionCpp = ['SEGUIMIENTO_TA', 'INFORME_FINAL', 'CERTIFICADO_CUMPLIMIENTO'].includes(configDoc.tipo);
+                const esDocValidacionCpp = [
+                  'SEGUIMIENTO_TA',
+                  'INFORME_FINAL',
+                  'CERTIFICADO_CUMPLIMIENTO',
+                ].includes(configDoc.tipo);
                 const bloqueadoPorValidacionCpp = esDocValidacionCpp && !asig.validadoCpp;
 
-                const urlEfectiva = bloqueadoPorValidacionCpp
-                  ? undefined
-                  : (docCargado?.url ||
-                      (configDoc.tipo === 'CARTA_ASIGNACION' && !bloqueadoPorFase
-                        ? obtenerUrlPrevisualizacionCartaAsignacionPp(asig.id)
-                        : undefined));
+                // Carta de Asignación: estrictamente bloqueada si el Director de Carrera aún no la emite y envía
+                const bloqueadoPorCarta =
+                  configDoc.tipo === 'CARTA_ASIGNACION' && !cartaAsignacionDisponible;
+
+                const urlEfectiva =
+                  bloqueadoPorValidacionCpp || bloqueadoPorCarta
+                    ? undefined
+                    : (docCargado?.id
+                        ? obtenerUrlPrevisualizacionDocumentoPortafolio(docCargado.id)
+                        : (configDoc.tipo === 'CARTA_ASIGNACION' && cartaAsignacionDisponible && asig.id
+                            ? obtenerUrlPrevisualizacionCartaAsignacionPp(asig.id)
+                            : docCargado?.url));
 
                 const claveCarga = `${asig.id}_${configDoc.tipo}`;
                 const estaSubiendo = subiendoDoc[claveCarga] ?? false;
@@ -325,7 +360,13 @@ export function TarjetaPracticaEstudiante({
                     }
                     alDescargar={(e) => {
                       if (urlEfectiva) {
-                        onDescargar(e, urlEfectiva, nombreDescarga);
+                        const urlDescargaDoc =
+                          docCargado?.id
+                            ? obtenerUrlDescargaDocumentoPortafolio(docCargado.id)
+                            : (configDoc.tipo === 'CARTA_ASIGNACION' && cartaAsignacionDisponible && asig.id
+                                ? obtenerUrlDescargaCartaAsignacionPp(asig.id)
+                                : urlEfectiva);
+                        onDescargar(e, urlDescargaDoc, nombreDescarga);
                       }
                     }}
                     referenciaInput={(el) => {
@@ -343,7 +384,7 @@ export function TarjetaPracticaEstudiante({
                 institucion={asig.institucion || 'Institución'}
                 urlAval={urlAval}
                 nombreAval={nombreAval}
-                alDescargar={(e) => onDescargar(e, urlAval, nombreAval)}
+                alDescargar={(e) => onDescargar(e, urlDescargaAval, nombreAval)}
               />
             </div>
           </div>

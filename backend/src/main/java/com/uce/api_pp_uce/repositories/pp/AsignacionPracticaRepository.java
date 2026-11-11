@@ -36,7 +36,7 @@ public interface AsignacionPracticaRepository extends JpaRepository<AsignacionPr
             (CAST(:estudianteId AS long) IS NULL OR a.procesoPractica.estudiante.id = :estudianteId) AND
             (CAST(:estado AS string) IS NULL OR a.estado = :estado) AND
             (CAST(:fase AS string) IS NULL OR a.fase = :fase) AND
-            (:requiereCarta IS NULL OR :requiereCarta = false OR EXISTS (SELECT d FROM DocumentoPortafolio d WHERE d.asignacion = a AND d.tipo = :tipoCartaAsignacion)) AND
+            (:requiereCarta IS NULL OR :requiereCarta = false OR (a.cartaAsignacionEnviada = true OR EXISTS (SELECT d FROM DocumentoPortafolio d WHERE d.asignacion = a AND d.tipo = :tipoCartaAsignacion))) AND
             (CAST(:busqueda AS string) IS NULL OR
             LOWER(a.procesoPractica.estudiante.nombres) LIKE LOWER(CONCAT('%', CAST(:busqueda AS string), '%')) OR
             LOWER(a.procesoPractica.estudiante.apellidos) LIKE LOWER(CONCAT('%', CAST(:busqueda AS string), '%')) OR
@@ -52,7 +52,7 @@ public interface AsignacionPracticaRepository extends JpaRepository<AsignacionPr
             (CAST(:estudianteId AS long) IS NULL OR a.procesoPractica.estudiante.id = :estudianteId) AND
             (CAST(:estado AS string) IS NULL OR a.estado = :estado) AND
             (CAST(:fase AS string) IS NULL OR a.fase = :fase) AND
-            (:requiereCarta IS NULL OR :requiereCarta = false OR EXISTS (SELECT d FROM DocumentoPortafolio d WHERE d.asignacion = a AND d.tipo = :tipoCartaAsignacion)) AND
+            (:requiereCarta IS NULL OR :requiereCarta = false OR (a.cartaAsignacionEnviada = true OR EXISTS (SELECT d FROM DocumentoPortafolio d WHERE d.asignacion = a AND d.tipo = :tipoCartaAsignacion))) AND
             (CAST(:busqueda AS string) IS NULL OR
             LOWER(a.procesoPractica.estudiante.nombres) LIKE LOWER(CONCAT('%', CAST(:busqueda AS string), '%')) OR
             LOWER(a.procesoPractica.estudiante.apellidos) LIKE LOWER(CONCAT('%', CAST(:busqueda AS string), '%')) OR
@@ -113,7 +113,7 @@ public interface AsignacionPracticaRepository extends JpaRepository<AsignacionPr
     @Query("SELECT COUNT(a) FROM AsignacionPractica a WHERE " +
             "(CAST(:carreraId AS integer) IS NULL OR a.procesoPractica.estudiante.carrera.id = :carreraId) AND " +
             "(CAST(:periodoId AS long) IS NULL OR a.periodoAcademico.id = :periodoId) AND " +
-            "(CAST(:tutorId AS long) IS NULL OR (a.tutorAcademico.id = :tutorId AND EXISTS (SELECT d FROM DocumentoPortafolio d WHERE d.asignacion = a AND d.tipo = :tipoCartaAsignacion))) AND "
+            "(CAST(:tutorId AS long) IS NULL OR (a.tutorAcademico.id = :tutorId AND (a.cartaAsignacionEnviada = true OR EXISTS (SELECT d FROM DocumentoPortafolio d WHERE d.asignacion = a AND d.tipo = :tipoCartaAsignacion)))) AND "
             +
             "(CAST(:estado AS string) IS NULL OR a.estado = :estado)")
     long countByFiltros(

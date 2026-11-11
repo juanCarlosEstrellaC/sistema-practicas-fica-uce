@@ -196,7 +196,7 @@ export function DisenioTutorAcademico({ metricas }: PropiedadesDisenioTutorAcade
               <TarjetaMetricaWireframe
                 valor={vcsEstudiantesParticipando}
                 etiqueta="Estudiantes participando"
-                descripcion="En territorio"
+                descripcion="Asignados a proyectos comunitarios"
                 icono={Users}
                 varianteColor="morado"
                 href="/dashboard/vinculacion/asignaciones-existentes"

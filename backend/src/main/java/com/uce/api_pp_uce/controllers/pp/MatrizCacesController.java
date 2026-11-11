@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.controllers.pp;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.common.RespuestaArchivoUtil;
 import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.MatrizCacesDto;
 import com.uce.api_pp_uce.enums.pp.EstadoMatrizCaces;
@@ -8,9 +9,6 @@ import com.uce.api_pp_uce.services.pp.MatrizCacesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -76,15 +74,7 @@ public class MatrizCacesController {
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS')")
     public ResponseEntity<byte[]> descargarExcel(@PathVariable Long id) {
         ArchivoDescargaDto descarga = matrizCacesService.obtenerDescargaExcel(id);
-
-        ContentDisposition disposition = ContentDisposition.attachment()
-                .filename(descarga.nombreArchivo())
-                .build();
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                .contentType(MediaType.parseMediaType(descarga.contentType()))
-                .body(descarga.contenido());
+        return RespuestaArchivoUtil.descargar(descarga);
     }
 
     @PatchMapping("/{id}/archivo-firmado")

@@ -5,7 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BotonPrevisualizarDocumento } from '@/components/comunes/boton-previsualizar-documento';
 import { cn } from '@/lib/utils';
-import { adaptarUrlProxy } from '@/lib/utilidades/proxy-url';
+import {
+  adaptarUrlProxy,
+  obtenerUrlDescargaDocumentoPortafolio,
+} from '@/lib/utilidades/proxy-url';
 import { obtenerEtiquetaFaseDePractica } from '@/lib/utilidades/etiquetas';
 import {
   FileText,
@@ -44,6 +47,11 @@ export function TarjetaDocumentoPortafolio({
   const puedeVerObservacion = esDocTutoria
     ? rol === 'TUTOR_ACADEMICO' || rol === 'COORDINADOR_PRACTICAS'
     : true;
+
+  const urlDescargaFinal = documento.dbId
+    ? obtenerUrlDescargaDocumentoPortafolio(documento.dbId)
+    : (documento.url || '');
+
   const manejarDescarga = async (e: React.MouseEvent, url: string, nombreArchivo: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -188,7 +196,7 @@ export function TarjetaDocumentoPortafolio({
                     onClick={(e) =>
                       manejarDescarga(
                         e,
-                        documento.url!,
+                        urlDescargaFinal,
                         documento.archivoNombre || `${documento.id}.pdf`
                       )
                     }
@@ -242,7 +250,7 @@ export function TarjetaDocumentoPortafolio({
                     onClick={(e) =>
                       manejarDescarga(
                         e,
-                        documento.url!,
+                        urlDescargaFinal,
                         documento.archivoNombre || `${documento.id}.pdf`
                       )
                     }
@@ -285,7 +293,7 @@ export function TarjetaDocumentoPortafolio({
                     onClick={(e) =>
                       manejarDescarga(
                         e,
-                        documento.url!,
+                        urlDescargaFinal,
                         documento.archivoNombre || `${documento.id}.pdf`
                       )
                     }

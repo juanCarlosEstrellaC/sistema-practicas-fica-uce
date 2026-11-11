@@ -388,7 +388,10 @@ export function ModalFormularioConvenio({
           <div className="space-y-2 pt-2 border-t border-border w-full min-w-0">
             <Label>Documento del Convenio (Formato PDF)</Label>
             {(() => {
-              const urlDocExistente = convenioAEditar?.urlDocumento || convenioAEditar?.documentoUrl;
+              const urlOriginal = convenioAEditar?.urlDocumento || convenioAEditar?.documentoUrl;
+              const urlDocExistente = urlOriginal
+                ? (convenioAEditar?.id ? `/convenios/${convenioAEditar.id}/preview` : urlOriginal)
+                : undefined;
               const nombreDocExistente = convenioAEditar?.nombreDocumento || 'Documento adjunto';
 
               if (urlDocExistente && !quitarDocumentoActual) {

@@ -32,7 +32,6 @@ import { RespuestaPaginada } from '@/lib/tipos/general';
 import {
   actualizarAsignacionPracticaAccion,
   obtenerAsignacionPracticaPorIdAccion,
-  reenviarCartaAsignacionAccion,
 } from '@/lib/acciones/pp/asignacion-practica.acciones';
 import {
   Edit2,
@@ -41,8 +40,6 @@ import {
   ArrowUp,
   ArrowDown,
   UserCheck,
-  Mail,
-  Loader2,
   Ban,
   XCircle,
 } from 'lucide-react';
@@ -121,7 +118,6 @@ export function TablaEstudiantes({
   const [asignacionAEliminar, setAsignacionAEliminar] = useState<AsignacionPracticaDetalleDto | null>(null);
   const [asignacionACancelar, setAsignacionACancelar] = useState<AsignacionPracticaDetalleDto | null>(null);
   const [asignacionAReprobar, setAsignacionAReprobar] = useState<AsignacionPracticaDetalleDto | null>(null);
-  const [reenviandoCartaId, setReenviandoCartaId] = useState<number | null>(null);
 
   // Ordenamiento por URL
   const sortActual = searchParams.get('sort') || 'id,desc';
@@ -236,23 +232,15 @@ export function TablaEstudiantes({
     }
   };
 
-  const manejarReenviarCarta = async (id: number) => {
-    setReenviandoCartaId(id);
-    try {
-      const res = await reenviarCartaAsignacionAccion(id);
-      if (res.exito) {
-        toast.success(res.mensaje || 'Carta de asignación reenviada exitosamente al Tutor Institucional');
-      } else {
-        toast.error(res.mensaje || 'Error al reenviar la carta de asignación');
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Error inesperado al reenviar la carta');
-    } finally {
-      setReenviandoCartaId(null);
-    }
-  };
-
-  const listaAsignaciones = paginaAsignaciones?.content || [];
+  const esCoordinador = rol === 'COORDINADOR_PRACTICAS';
+  const esTutor = rol === 'TUTOR_ACADEMICO';
+  const contenidoOriginal = paginaAsignaciones?.content || [];
+  const listaAsignaciones = esTutor
+    ? contenidoOriginal.filter((a) => a.cartaAsignacionEnviada !== false)
+    : contenidoOriginal;
+  const totalAsignaciones = esTutor
+    ? Math.max(0, (paginaAsignaciones?.totalElements || 0) - (contenidoOriginal.length - listaAsignaciones.length))
+    : paginaAsignaciones?.totalElements || 0;
 
   useEffect(() => {
     if (!asignacionDetalle?.id) return;
@@ -265,19 +253,16 @@ export function TablaEstudiantes({
   const faseFiltro = searchParams.get('faseActual') || searchParams.get('fase');
   const estaEnFaseFinalizacion = faseFiltro === 'FINALIZACION';
 
-  const esDirector = rol === 'DIRECTOR_CARRERA';
-  const esCoordinador = rol === 'COORDINADOR_PRACTICAS';
-  const esTutor = rol === 'TUTOR_ACADEMICO';
   const mostrarColumnaCarrera = rol === 'SUBDECANO';
   const mostrarColumnaAcciones =
-    !estaEnFaseFinalizacion && (esDirector || esCoordinador || esTutor) && !esInactivo;
+    !estaEnFaseFinalizacion && (esCoordinador || esTutor) && !esInactivo;
 
   return (
     <div className="space-y-4">
       {/* Cabecera de la tabla y Conteo Reutilizable */}
       <CabeceraListado
         titulo="Listado de Asignaciones"
-        total={paginaAsignaciones?.totalElements || 0}
+        total={totalAsignaciones}
       />
 
       {/* Tabla (Desktop) y Tarjetas (Mobile) */}
@@ -429,12 +414,10 @@ export function TablaEstudiantes({
                     ? `${item.tutorAcademico.nombres || ''} ${item.tutorAcademico.apellidos || ''}`.trim()
                     : null;
                   const estaFinalizadaNegativa = item.estado === 'REPROBADO' || item.estado === 'CANCELADO';
-                  const tieneBotonDirector = esDirector && item.estado !== 'APROBADO' && (item.estado as string) !== 'COMPLETADO';
                   const tieneBotonCoordinador =
                     esCoordinador && (item.fase === 'ASIGNACION' || item.estado === 'EN_CURSO');
                   const tieneBotonTutor = esTutor && item.estado === 'EN_CURSO';
                   const tieneAccionesFila =
-                    tieneBotonDirector ||
                     tieneBotonCoordinador ||
                     tieneBotonTutor;
 
@@ -554,28 +537,6 @@ export function TablaEstudiantes({
                                       </Button>
                                     </>
                                   )}
-                                </div>
-                              )}
-                              {esDirector && (
-                                <div className="flex justify-end gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-accent-foreground"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      manejarReenviarCarta(Number(item.id));
-                                    }}
-                                    disabled={reenviandoCartaId === Number(item.id)}
-                                    title="Reenviar Carta al Tutor Institucional"
-                                  >
-                                    {reenviandoCartaId === Number(item.id) ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Mail className="h-4 w-4" />
-                                    )}
-                                  </Button>
                                 </div>
                               )}
                               {esTutor && item.estado === 'EN_CURSO' && (
@@ -785,24 +746,6 @@ export function TablaEstudiantes({
                               </>
                             )}
                           </>
-                        )}
-
-                        {esDirector && !esInactivo && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 w-9 p-0 border-sidebar-border bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:border-sidebar-border dark:bg-sidebar dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-accent-foreground"
-                            onClick={() => manejarReenviarCarta(Number(item.id))}
-                            disabled={reenviandoCartaId === Number(item.id)}
-                            title="Reenviar Carta al Tutor Institucional"
-                          >
-                            {reenviandoCartaId === Number(item.id) ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Mail className="h-4 w-4" />
-                            )}
-                          </Button>
                         )}
 
                         {esTutor && !esInactivo && item.estado === 'EN_CURSO' && (

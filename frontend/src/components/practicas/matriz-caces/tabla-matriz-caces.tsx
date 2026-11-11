@@ -163,13 +163,13 @@ export function TablaMatrizCaces({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-muted/40 border border-border/70 rounded-xl shadow-2xs">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground font-medium">Código IES</span>
-          <span className="text-sm font-semibold text-foreground font-mono mt-0.5">
+          <span className="text-sm font-semibold text-foreground mt-0.5">
             {codigoIes}
           </span>
         </div>
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground font-medium">Código carrera</span>
-          <span className="text-sm font-semibold text-foreground font-mono mt-0.5">
+          <span className="text-sm font-semibold text-foreground mt-0.5">
             {codigoCarrera || '—'}
           </span>
         </div>

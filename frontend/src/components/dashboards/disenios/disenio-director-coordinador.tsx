@@ -231,7 +231,7 @@ export function DisenioDirectorCoordinador({
               <TarjetaMetricaWireframe
                 valor={vcsEstudiantesParticipando}
                 etiqueta="Estudiantes participando"
-                descripcion="Asignados a proyectos en territorio"
+                descripcion="Asignados a proyectos comunitarios"
                 icono={Users}
                 varianteColor="morado"
                 href="/dashboard/vinculacion/asignaciones-existentes"

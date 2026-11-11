@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BotonPrevisualizarDocumento } from '@/components/comunes/boton-previsualizar-documento';
+import { obtenerUrlPrevisualizacionDocumentoPortafolio } from '@/lib/utilidades/proxy-url';
 import {
   FileText,
   Upload,
@@ -56,7 +57,7 @@ const REQUISITOS_PORTAFOLIO: RequisitoPortafolio[] = [
   {
     tipo: 'CARTA_ASIGNACION',
     nombre: '3. Carta de Asignación',
-    descripcion: 'Documento oficial generado por la coordinación y firmado.',
+    descripcion: 'Documento oficial generado por la Dirección de Carrera y firmado.',
     requerido: true,
     etapaMinima: 'ASIGNACION',
   },
@@ -185,6 +186,8 @@ export function VistaPortafolioPracticas({
           {REQUISITOS_PORTAFOLIO.map((req) => {
             const docCargado = documentos.find((d) => d.tipo === req.tipo);
             const estaCargando = !!cargandoDoc[req.tipo];
+            const esSubidoPorEstudiante = req.tipo === 'CV' || req.tipo === 'DOCUMENTO_IDENTIDAD';
+            const yaEstaAprobado = docCargado?.estado === 'APROBADO';
 
             return (
               <div
@@ -249,7 +252,11 @@ export function VistaPortafolioPracticas({
 
                   {docCargado?.url && (
                     <BotonPrevisualizarDocumento
-                      url={docCargado.url}
+                      url={
+                        docCargado.id
+                          ? obtenerUrlPrevisualizacionDocumentoPortafolio(docCargado.id)
+                          : docCargado.url
+                      }
                       titulo={docCargado.nombre || req.nombre}
                       nombreArchivo={docCargado.nombre}
                       texto="Ver"
@@ -259,30 +266,32 @@ export function VistaPortafolioPracticas({
                     />
                   )}
 
-                  <Button
-                    variant={docCargado ? 'outline' : 'default'}
-                    size="sm"
-                    className="h-8 text-xs"
-                    disabled={estaCargando}
-                    onClick={() => manejarClickSubir(req.tipo)}
-                  >
-                    {estaCargando ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                        Subiendo...
-                      </>
-                    ) : docCargado ? (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                        Reemplazar
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-3.5 w-3.5 mr-1.5" />
-                        Subir PDF
-                      </>
-                    )}
-                  </Button>
+                  {esSubidoPorEstudiante && !yaEstaAprobado && (
+                    <Button
+                      variant={docCargado ? 'outline' : 'default'}
+                      size="sm"
+                      className="h-8 text-xs"
+                      disabled={estaCargando}
+                      onClick={() => manejarClickSubir(req.tipo)}
+                    >
+                      {estaCargando ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Subiendo...
+                        </>
+                      ) : docCargado ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                          Reemplazar
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5 mr-1.5" />
+                          Subir PDF
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             );

@@ -62,16 +62,20 @@ public class MetricasServiceImpl implements MetricasService {
         if (usuarioAutenticado == null) {
             usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
         }
+        Long tutorFiltro = tutorId;
         if (usuarioAutenticado != null && usuarioAutenticado.getRol() != RolUsuario.SUBDECANO) {
             Integer miCarreraId = usuarioAutenticado.getCarrera() != null ? usuarioAutenticado.getCarrera().getId() : null;
             if (miCarreraId != null && !miCarreraId.equals(carreraId)) {
                 throw new NegocioException("No tiene permiso para consultar métricas de otra carrera");
             }
+            if (usuarioAutenticado.getRol() == RolUsuario.TUTOR_ACADEMICO) {
+                tutorFiltro = usuarioAutenticado.getId();
+            }
         }
         long totalEstudiantes = usuarioRepository.countByRolAndCarreraId(RolUsuario.ESTUDIANTE, carreraId);
-        long estudiantesAsignados = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorId, null);
-        long estudiantesEnCurso = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorId, EstadoAsignacion.EN_CURSO);
-        long estudiantesCompletados = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorId, EstadoAsignacion.APROBADO);
+        long estudiantesAsignados = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorFiltro, null);
+        long estudiantesEnCurso = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorFiltro, EstadoAsignacion.EN_CURSO);
+        long estudiantesCompletados = asignacionPracticaRepository.countByFiltros(carreraId, periodoId, tutorFiltro, EstadoAsignacion.APROBADO);
         long totalConvenios = convenioRepository.count(); // Convenios son globales
         long conveniosPorExpirar = convenioRepository.countByEstado(EstadoConvenio.POR_EXPIRAR);
         long conveniosExpirados = convenioRepository.countByEstado(EstadoConvenio.EXPIRADO);

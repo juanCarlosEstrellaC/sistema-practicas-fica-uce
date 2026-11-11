@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Award, GraduationCap, Sparkles, X } from 'lucide-react';
+import { Award, GraduationCap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CelebracionConfetiPpProps {
@@ -103,7 +103,6 @@ export function CelebracionConfetiPp({
                 ? '¡Felicitaciones! Has completado el requisito de Prácticas Preprofesionales'
                 : '¡Horas de Prácticas aprobadas con éxito!'}
             </h4>
-            <Sparkles className="h-4 w-4 text-amber-500 animate-pulse shrink-0" />
           </div>
 
           <p className="text-sm text-muted-foreground leading-relaxed">

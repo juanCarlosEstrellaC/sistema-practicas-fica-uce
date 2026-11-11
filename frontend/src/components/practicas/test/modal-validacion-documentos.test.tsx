@@ -117,7 +117,7 @@ describe('ModalValidacionDocumentos (Componente UI)', () => {
     expect(badgeAprobado).toHaveClass('bg-emerald-500/10', 'text-emerald-600', 'border-emerald-200');
 
     // Badge Rechazado con estilo destructive de portafolio (sin variant destructive)
-    const badgeRechazado = screen.getByText('Rechazado');
+    const badgeRechazado = screen.getAllByText('Rechazado')[0];
     expect(badgeRechazado).toHaveClass('bg-destructive/10', 'text-destructive', 'border-destructive/20');
 
     // Badge En Revisión con estilo amber de portafolio
@@ -169,10 +169,74 @@ describe('ModalValidacionDocumentos (Componente UI)', () => {
     expect(screen.getByText('27/10/2026')).toBeInTheDocument();
     expect(screen.getByText('28/10/2026')).toBeInTheDocument();
 
-    // 3. Documento actual y nombre del PDF (ej: Hoja de Vida (CV) | cv_juan_carlos.pdf)
+    // 3. Al estar CV y Cédula aprobados, si se selecciona Hoja de Vida (CV) muestra el nombre del PDF y su iframe
+    fireEvent.click(screen.getByRole('button', { name: /Hoja de Vida \(CV\)/i }));
+
     const elementoPdf = screen.getByText('cv_juan_carlos.pdf');
     expect(elementoPdf).toBeInTheDocument();
     expect(elementoPdf).toHaveClass('truncate', 'min-w-0');
     expect(screen.getByText('|')).toBeInTheDocument();
+
+    // 4. El iframe usa la ruta de previsualización protegida del controlador a través del proxy
+    const iframe = screen.getByTitle(/Visor cv_juan_carlos\.pdf/i);
+    expect(iframe).toHaveAttribute('src', '/api/proxy/documentos/1/preview');
+  });
+
+  it('oculta el boton Revertir a Pendiente para CV y Documento de Identidad aprobados, y salta al primer documento pendiente al abrir', () => {
+    const documentosMock = [
+      {
+        id: 1,
+        tipo: 'CV',
+        estado: 'APROBADO',
+        url: 'https://ejemplo.com/cv.pdf',
+        nombre: 'cv.pdf',
+      },
+      {
+        id: 2,
+        tipo: 'DOCUMENTO_IDENTIDAD',
+        estado: 'APROBADO',
+        url: 'https://ejemplo.com/cedula.pdf',
+        nombre: 'cedula.pdf',
+      },
+      {
+        id: 3,
+        tipo: 'SEGUIMIENTO_TA',
+        estado: 'PENDIENTE_REVISION',
+        url: 'https://ejemplo.com/seguimiento.pdf',
+        nombre: 'seguimiento.pdf',
+      },
+      {
+        id: 4,
+        tipo: 'INFORME_FINAL',
+        estado: 'APROBADO',
+        url: 'https://ejemplo.com/informe.pdf',
+        nombre: 'informe.pdf',
+      },
+    ];
+
+    render(
+      <ModalValidacionDocumentos
+        open={true}
+        onOpenChange={vi.fn()}
+        documentos={documentosMock}
+        estudianteId="10"
+        asignacionId="20"
+        onValidacionCompleta={vi.fn()}
+      />
+    );
+
+    // 1. Por defecto salta CV y Cedula (ya aprobados) y posiciona en Seguimiento TA
+    expect(screen.getByText('seguimiento.pdf')).toBeInTheDocument();
+
+    // 2. Al seleccionar CV (aprobado), no muestra el botón Revertir a Pendiente
+    fireEvent.click(screen.getByRole('button', { name: /Hoja de Vida \(CV\)/i }));
+    expect(
+      screen.getByText(/Este documento ya fue aprobado y se reutiliza en todas las prácticas del estudiante/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Revertir a Pendiente/i })).not.toBeInTheDocument();
+
+    // 3. Al seleccionar Informe Final (aprobado, documento de la práctica puntual), SÍ muestra Revertir a Pendiente
+    fireEvent.click(screen.getByRole('button', { name: /Informe Final/i }));
+    expect(screen.getByRole('button', { name: /Revertir a Pendiente/i })).toBeInTheDocument();
   });
 });

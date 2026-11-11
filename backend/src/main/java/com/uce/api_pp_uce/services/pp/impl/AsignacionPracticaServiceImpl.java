@@ -122,10 +122,20 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                         if (!usuarioId.equals(estudianteId)) {
                                 throw new AccessDeniedException("No tiene permisos para acceder a esta asignación de prácticas.");
                         }
+                        boolean cartaEnviada = Boolean.TRUE.equals(asignacion.getCartaAsignacionEnviada())
+                                        || documentoRepository.existsByAsignacionIdAndTipo(asignacion.getId(), TipoDocumento.CARTA_ASIGNACION);
+                        if (!cartaEnviada) {
+                                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación: la carta de asignación aún no ha sido emitida.");
+                        }
                 } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
                         Long tutorId = asignacion.getTutorAcademico() != null ? asignacion.getTutorAcademico().getId() : null;
                         if (tutorId == null || !usuarioId.equals(tutorId)) {
                                 throw new AccessDeniedException("No tiene permisos: no es el tutor académico asignado a esta práctica.");
+                        }
+                        boolean cartaEnviada = Boolean.TRUE.equals(asignacion.getCartaAsignacionEnviada())
+                                        || documentoRepository.existsByAsignacionIdAndTipo(asignacion.getId(), TipoDocumento.CARTA_ASIGNACION);
+                        if (!cartaEnviada) {
+                                throw new AccessDeniedException("No tiene permisos para acceder a esta asignación: la carta de asignación aún no ha sido emitida.");
                         }
                 } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
                         Integer miCarreraId = usuario.getCarrera() != null ? usuario.getCarrera().getId() : null;
@@ -145,14 +155,17 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 Integer carreraFiltro = carreraId;
                 Long estudianteFiltro = estudianteId;
                 Long tutorFiltro = tutorId;
+                Boolean requiereCartaFiltro = requiereCarta;
 
                 Usuario usuario = usuarioAutenticadoService.obtenerUsuarioLogueado();
                 if (usuario != null) {
                         RolUsuario rol = usuario.getRol();
                         if (rol == RolUsuario.ESTUDIANTE) {
                                 estudianteFiltro = usuario.getId();
+                                requiereCartaFiltro = true;
                         } else if (rol == RolUsuario.TUTOR_ACADEMICO) {
                                 tutorFiltro = usuario.getId();
+                                requiereCartaFiltro = true;
                         } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
                                 if (usuario.getCarrera() != null) {
                                         carreraFiltro = usuario.getCarrera().getId();
@@ -163,7 +176,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 Pageable pageableMapeado = mapearPageable(pageable);
                 return asignacionPracticaRepository
                                 .findByFiltros(busqueda, estado, fase, carreraFiltro, periodoId, tutorFiltro, estudianteFiltro,
-                                                requiereCarta,
+                                                requiereCartaFiltro,
                                                 pageableMapeado)
                                 .map(this::mapToDetalleDto);
         }
@@ -400,27 +413,69 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 return detalleDto;
         }
 
-        private byte[] obtenerBytesCarta(String urlCartaFirmada, Long asignacionId) {
-                if (urlCartaFirmada != null && urlCartaFirmada.contains("/archivos_subidos/")) {
-                        try {
-                                String rutaRelativa = urlCartaFirmada
-                                                .substring(urlCartaFirmada.indexOf("/archivos_subidos/")
-                                                                + "/archivos_subidos/".length());
-                                Path carpetaBase = Paths.get(System.getProperty("user.dir"),
-                                                rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento
-                                                                : "archivos_subidos");
-                                Path filePath = carpetaBase.resolve(rutaRelativa);
-                                if (!Files.exists(filePath) && !rutaRelativa.contains("/")) {
-                                        Path posible = carpetaBase.resolve("cartas_asignacion")
-                                                        .resolve(rutaRelativa);
-                                        if (Files.exists(posible)) {
+        private byte[] intentarLeerArchivoAlmacenado(String urlArchivo) {
+                if (urlArchivo == null || urlArchivo.isBlank()) {
+                        return null;
+                }
+                try {
+                        String rutaLimpia = urlArchivo.trim();
+                        int idxArchivos = rutaLimpia.indexOf("/archivos_subidos/");
+                        if (idxArchivos != -1) {
+                                rutaLimpia = rutaLimpia.substring(idxArchivos + "/archivos_subidos/".length());
+                        } else {
+                                if (rutaLimpia.startsWith("/")) {
+                                        rutaLimpia = rutaLimpia.substring(1);
+                                }
+                                if (rutaLimpia.startsWith("archivos_subidos/")) {
+                                        rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
+                                }
+                        }
+
+                        String baseConfig = rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos";
+                        Path carpetaBase = Paths.get(baseConfig).toAbsolutePath().normalize();
+                        if (!Files.exists(carpetaBase) && Files.exists(Paths.get("backend", baseConfig))) {
+                                carpetaBase = Paths.get("backend", baseConfig).toAbsolutePath().normalize();
+                        }
+
+                        Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
+                        if (!filePath.startsWith(carpetaBase)) {
+                                throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
+                        }
+
+                        if (!Files.exists(filePath)) {
+                                String nombreArchivoPlano = Paths.get(rutaLimpia).getFileName().toString();
+                                List<String> posiblesSubcarpetas = List.of(
+                                                "practicas/cartas_asignacion",
+                                                "practicas/avales",
+                                                "practicas/portafolios",
+                                                "cartas_asignacion",
+                                                "avales",
+                                                "portafolios");
+                                for (String sub : posiblesSubcarpetas) {
+                                        Path posible = carpetaBase.resolve(sub).resolve(nombreArchivoPlano).normalize()
+                                                        .toAbsolutePath();
+                                        if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
                                                 filePath = posible;
+                                                break;
                                         }
                                 }
-                                return Files.readAllBytes(filePath);
-                        } catch (Exception e) {
-                                log.error("Error al leer el archivo firmado: {}", e.getMessage());
                         }
+
+                        if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+                                return Files.readAllBytes(filePath);
+                        }
+                } catch (NegocioException e) {
+                        throw e;
+                } catch (Exception e) {
+                        log.error("Error al leer el archivo firmado desde almacenamiento: {}", e.getMessage());
+                }
+                return null;
+        }
+
+        private byte[] obtenerBytesCarta(String urlCartaFirmada, Long asignacionId) {
+                byte[] bytesFirmados = intentarLeerArchivoAlmacenado(urlCartaFirmada);
+                if (bytesFirmados != null) {
+                        return bytesFirmados;
                 }
                 return generarPdfCartaAsignacion(asignacionId);
         }
@@ -442,42 +497,11 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                                 .findByAsignacionIdAndTipo(asignacionId, TipoDocumento.CARTA_ASIGNACION)
                                 .orElse(null);
 
-                byte[] pdfBytes;
-                try {
-                        if (documento != null && documento.getUrl() != null) {
-                                String rutaLimpia = documento.getUrl().trim();
-                                if (rutaLimpia.startsWith("/")) {
-                                        rutaLimpia = rutaLimpia.substring(1);
-                                }
-                                if (rutaLimpia.startsWith("archivos_subidos/")) {
-                                        rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
-                                }
-
-                                Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
-                                                .toAbsolutePath().normalize();
-                                Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
-
-                                if (!filePath.startsWith(carpetaBase)) {
-                                        throw new NegocioException("Acceso no permitido: ruta de archivo invalida");
-                                }
-
-                                if (!Files.exists(filePath)) {
-                                        Path posible = carpetaBase.resolve("cartas_asignacion")
-                                                        .resolve(Paths.get(rutaLimpia).getFileName()).normalize().toAbsolutePath();
-                                        if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
-                                                filePath = posible;
-                                        } else {
-                                                throw new RecursoNoEncontradoException(
-                                                                "El archivo físico no existe en: " + filePath);
-                                        }
-                                }
-                                pdfBytes = Files.readAllBytes(filePath);
-                        } else {
-                                pdfBytes = generarPdfCartaAsignacion(asignacionId);
-                        }
-                } catch (Exception e) {
-                        log.error("Error al leer el archivo firmado desde el disco: {}. Generando PDF de respaldo...",
-                                        e.getMessage());
+                byte[] pdfBytes = null;
+                if (documento != null && documento.getUrl() != null) {
+                        pdfBytes = intentarLeerArchivoAlmacenado(documento.getUrl());
+                }
+                if (pdfBytes == null) {
                         pdfBytes = generarPdfCartaAsignacion(asignacionId);
                 }
 
@@ -514,7 +538,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
 
                 if (!Boolean.TRUE.equals(asignacion.getCartaAsignacionEnviada())) {
                         throw new NegocioException(
-                                        "No se puede iniciar el desarrollo: la Carta de Asignación aún no ha sido emitida por el Coordinador de Prácticas.");
+                                        "No se puede iniciar el desarrollo: la Carta de Asignación aún no ha sido emitida por el Director de Carrera.");
                 }
                 asignacion.setFase(FaseActualPractica.DESARROLLO);
                 asignacion.setReunionRealizada(true);
@@ -555,8 +579,8 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 }
 
                 asignacion.setFase(FaseActualPractica.FINALIZACION);
-                asignacion.setHorasCompletadas(
-                                asignacion.getHorasAsignadas() != null ? asignacion.getHorasAsignadas() : 240);
+                // Las horas unicamente se validan cuando Subdecanato emite el Aval oficial
+                asignacion.setHorasCompletadas(0);
                 if (fechaFin != null) {
                         asignacion.setFechaFin(fechaFin);
                 }
@@ -628,6 +652,8 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                         throw new NegocioException("El Aval de Cumplimiento ya ha sido generado para esta asignación.");
                 }
 
+                int horasAprobadas = asignacion.getHorasAsignadas() != null ? asignacion.getHorasAsignadas() : 0;
+                asignacion.setHorasCompletadas(horasAprobadas);
                 asignacion.setEstado(EstadoAsignacion.APROBADO);
                 if (asignacion.getFechaFin() == null) {
                         asignacion.setFechaFin(LocalDate.now());
@@ -637,9 +663,7 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                 if (proceso != null) {
                         proceso.setHorasAcumuladas(
                                         (proceso.getHorasAcumuladas() != null ? proceso.getHorasAcumuladas() : 0)
-                                                        + (asignacion.getHorasCompletadas() != null
-                                                                        ? asignacion.getHorasCompletadas()
-                                                                        : asignacion.getHorasAsignadas()));
+                                                        + horasAprobadas);
                         if (proceso.getHorasAcumuladas() >= proceso.getHorasRequeridas()) {
                                 proceso.setEstado(EstadoProceso.COMPLETADO);
                                 if (asignacion.getEstudiante() != null) {
@@ -1045,9 +1069,23 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         }
 
         private AsignacionPracticaDetalleDto mapToDetalleDto(AsignacionPractica a) {
-                Boolean puedeEditar = !documentoRepository.existsByAsignacionIdAndTipo(a.getId(),
-                                TipoDocumento.CARTA_ASIGNACION);
-                return asignacionPracticaMapeador.aDetalleDto(a, puedeEditar);
+                boolean existeCarta = Boolean.TRUE.equals(a.getCartaAsignacionEnviada())
+                                || documentoRepository.existsByAsignacionIdAndTipo(a.getId(), TipoDocumento.CARTA_ASIGNACION);
+                Boolean puedeEditar = !existeCarta;
+                AsignacionPracticaDetalleDto dto = asignacionPracticaMapeador.aDetalleDto(a, puedeEditar);
+                if (existeCarta && !Boolean.TRUE.equals(dto.cartaAsignacionEnviada())) {
+                        return new AsignacionPracticaDetalleDto(
+                                        dto.id(), dto.estudiante(), dto.tutorAcademico(), dto.convenioId(),
+                                        dto.institucion(), dto.direccion(), dto.tutorInstitucional(),
+                                        dto.correoTutorInstitucional(), dto.telefonoTutorInstitucional(),
+                                        dto.directorCarreraNombre(), dto.periodoAcademicoNombre(),
+                                        dto.periodoAcademicoId(), dto.semestre(), dto.horasAsignadas(),
+                                        dto.horasCompletadas(), dto.fechaInicio(), dto.fechaFin(),
+                                        dto.fase(), dto.estado(), dto.validadoCpp(), dto.reunionRealizada(),
+                                        dto.validadoSiiu(), true, dto.sectorReceptora(),
+                                        dto.observacionesCaces(), puedeEditar);
+                }
+                return dto;
         }
 
         @Override
@@ -1102,11 +1140,28 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional(readOnly = true)
         public ArchivoDescargaDto obtenerCartaAsignacionDescarga(Long asignacionId) {
                 AsignacionPracticaDetalleDto asignacion = buscarDetallePorId(asignacionId);
-                byte[] bytesPdf = cartaAsignacionPdfExportador.exportar(asignacion);
                 String nombreEstudiante = asignacion.estudiante() != null
                                 ? (asignacion.estudiante().nombres() + " " + asignacion.estudiante().apellidos()).trim()
                                 : "Estudiante";
                 String nombreArchivo = nombreEstudiante + " - Carta de Asignacion.pdf";
+
+                DocumentoPortafolio docCarta = documentoRepository
+                                .findByAsignacionIdAndTipo(asignacionId, TipoDocumento.CARTA_ASIGNACION)
+                                .orElse(null);
+                if (docCarta != null && docCarta.getUrl() != null) {
+                        byte[] bytesFirmados = intentarLeerArchivoAlmacenado(docCarta.getUrl());
+                        if (bytesFirmados != null) {
+                                String nombreDescarga = (docCarta.getNombre() != null && !docCarta.getNombre().isBlank())
+                                                ? docCarta.getNombre()
+                                                : nombreArchivo;
+                                if (!nombreDescarga.toLowerCase().endsWith(".pdf")) {
+                                        nombreDescarga += ".pdf";
+                                }
+                                return new ArchivoDescargaDto(bytesFirmados, nombreDescarga, "application/pdf");
+                        }
+                }
+
+                byte[] bytesPdf = cartaAsignacionPdfExportador.exportar(asignacion);
                 return new ArchivoDescargaDto(bytesPdf, nombreArchivo, "application/pdf");
         }
 
@@ -1121,6 +1176,28 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
         @Transactional(readOnly = true)
         public ArchivoDescargaDto obtenerAvalDescarga(Long asignacionId, String subdecanoNombre, String subdecanoCedula,
                         String subdecanoTelefono, String subdecanoCorreo, Usuario subdecanoAutenticado) {
+                AsignacionPracticaDetalleDto asignacion = buscarDetallePorId(asignacionId);
+                String nombreEstudiante = asignacion.estudiante() != null
+                                ? (asignacion.estudiante().nombres() + " " + asignacion.estudiante().apellidos()).trim()
+                                : "Estudiante";
+                String nombreArchivo = nombreEstudiante + " - Aval de Cumplimiento.pdf";
+
+                DocumentoPortafolio docAval = documentoRepository
+                                .findByAsignacionIdAndTipo(asignacionId, TipoDocumento.AVAL)
+                                .orElse(null);
+                if (docAval != null && docAval.getUrl() != null) {
+                        byte[] bytesFirmados = intentarLeerArchivoAlmacenado(docAval.getUrl());
+                        if (bytesFirmados != null) {
+                                String nombreDescarga = (docAval.getNombre() != null && !docAval.getNombre().isBlank())
+                                                ? docAval.getNombre()
+                                                : nombreArchivo;
+                                if (!nombreDescarga.toLowerCase().endsWith(".pdf")) {
+                                        nombreDescarga += ".pdf";
+                                }
+                                return new ArchivoDescargaDto(bytesFirmados, nombreDescarga, "application/pdf");
+                        }
+                }
+
                 Usuario subdecano = subdecanoAutenticado != null ? subdecanoAutenticado : usuarioAutenticadoService.obtenerUsuarioLogueado();
                 if (subdecano != null && subdecano.getRol() == RolUsuario.SUBDECANO) {
                         if (subdecanoNombre == null || subdecanoNombre.isBlank()) {
@@ -1137,11 +1214,6 @@ public class AsignacionPracticaServiceImpl implements AsignacionPracticaService 
                         }
                 }
                 byte[] bytesPdf = generarPdfAval(asignacionId, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
-                AsignacionPracticaDetalleDto asignacion = buscarDetallePorId(asignacionId);
-                String nombreEstudiante = asignacion.estudiante() != null
-                                ? (asignacion.estudiante().nombres() + " " + asignacion.estudiante().apellidos()).trim()
-                                : "Estudiante";
-                String nombreArchivo = nombreEstudiante + " - Aval de Cumplimiento.pdf";
                 return new ArchivoDescargaDto(bytesPdf, nombreArchivo, "application/pdf");
         }
 }

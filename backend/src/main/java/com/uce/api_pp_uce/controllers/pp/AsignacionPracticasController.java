@@ -18,10 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
+import com.uce.api_pp_uce.common.RespuestaArchivoUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -89,14 +86,16 @@ public class AsignacionPracticasController {
     @PatchMapping("/{id}/reprobar")
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> reprobarAsignacion(@PathVariable Long id) {
         AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.reprobarAsignacion(id);
-        return ResponseEntity.ok(new RespuestaApi<>(true, "Práctica preprofesional reprobada exitosamente", asignacion));
+        return ResponseEntity
+                .ok(new RespuestaApi<>(true, "Práctica preprofesional reprobada exitosamente", asignacion));
     }
 
     @PreAuthorize("hasRole('COORDINADOR_PRACTICAS')")
     @PatchMapping("/{id}/cancelar")
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> cancelarAsignacion(@PathVariable Long id) {
         AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.cancelarAsignacion(id);
-        return ResponseEntity.ok(new RespuestaApi<>(true, "Práctica preprofesional cancelada exitosamente", asignacion));
+        return ResponseEntity
+                .ok(new RespuestaApi<>(true, "Práctica preprofesional cancelada exitosamente", asignacion));
     }
 
     @PreAuthorize("hasRole('COORDINADOR_PRACTICAS')")
@@ -130,14 +129,22 @@ public class AsignacionPracticasController {
     @GetMapping("/{id}/carta-asignacion/preview")
     public ResponseEntity<byte[]> vistaPreviaCartaAsignacion(@PathVariable Long id) {
         ArchivoDescargaDto descarga = asignacionPracticaService.obtenerCartaAsignacionDescarga(id);
-        return construirRespuestaPdf(descarga.contenido(), descarga.nombreArchivo());
+        return RespuestaArchivoUtil.previsualizar(descarga);
+    }
+
+    @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
+    @GetMapping("/{id}/carta-asignacion/descargar")
+    public ResponseEntity<byte[]> descargarCartaAsignacion(@PathVariable Long id) {
+        ArchivoDescargaDto descarga = asignacionPracticaService.obtenerCartaAsignacionDescarga(id);
+        return RespuestaArchivoUtil.descargar(descarga);
     }
 
     @PreAuthorize("hasRole('DIRECTOR_CARRERA')")
     @PostMapping("/{id}/reenviar-carta")
     public ResponseEntity<RespuestaApi<Void>> reenviarCarta(@PathVariable Long id) {
         asignacionPracticaService.reenviarCartaAsignacion(id);
-        return ResponseEntity.ok(new RespuestaApi<>(true, "Carta de asignación reenviada exitosamente al Tutor Institucional", null));
+        return ResponseEntity.ok(
+                new RespuestaApi<>(true, "Carta de asignación reenviada exitosamente al Tutor Institucional", null));
     }
 
     @PreAuthorize("hasAnyRole('TUTOR_ACADEMICO', 'COORDINADOR_PRACTICAS')")
@@ -161,11 +168,15 @@ public class AsignacionPracticasController {
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> firmarRegistro(
             @PathVariable Long id,
             @RequestBody(required = false) FirmarRegistroDto solicitud) {
-        String urlInforme = (solicitud != null && solicitud.urlInforme() != null) ? solicitud.urlInforme() : "/docs/informe_final.pdf";
-        String urlCertificado = (solicitud != null && solicitud.urlCertificado() != null) ? solicitud.urlCertificado() : "/docs/certificado_cumplimiento.pdf";
-        String urlSeguimiento = (solicitud != null && solicitud.urlSeguimiento() != null) ? solicitud.urlSeguimiento() : "/docs/seguimiento_tutor.pdf";
+        String urlInforme = (solicitud != null && solicitud.urlInforme() != null) ? solicitud.urlInforme()
+                : "/docs/informe_final.pdf";
+        String urlCertificado = (solicitud != null && solicitud.urlCertificado() != null) ? solicitud.urlCertificado()
+                : "/docs/certificado_cumplimiento.pdf";
+        String urlSeguimiento = (solicitud != null && solicitud.urlSeguimiento() != null) ? solicitud.urlSeguimiento()
+                : "/docs/seguimiento_tutor.pdf";
         LocalDate fechaFin = (solicitud != null) ? solicitud.fechaFin() : null;
-        AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.firmarRegistroDesarrollo(id, urlInforme, urlCertificado, urlSeguimiento, fechaFin);
+        AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.firmarRegistroDesarrollo(id, urlInforme,
+                urlCertificado, urlSeguimiento, fechaFin);
         return ResponseEntity.ok(new RespuestaApi<>(true, "Registro firmado y enviado a revisión", asignacion));
     }
 
@@ -190,7 +201,8 @@ public class AsignacionPracticasController {
     public ResponseEntity<RespuestaApi<AsignacionPracticaDetalleDto>> actualizarDatosCaces(
             @PathVariable Long id,
             @RequestBody DatosCacesDto solicitud) {
-        AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.actualizarDatosCaces(id, solicitud.observacionesCaces());
+        AsignacionPracticaDetalleDto asignacion = asignacionPracticaService.actualizarDatosCaces(id,
+                solicitud.observacionesCaces());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Datos CACES actualizados", asignacion));
     }
 
@@ -204,19 +216,12 @@ public class AsignacionPracticasController {
     @PreAuthorize("hasRole('SUBDECANO')")
     @GetMapping("/{id}/aval/preview")
     public ResponseEntity<byte[]> vistaPreviaAval(@PathVariable Long id,
-                                              @RequestParam(required = false) String subdecanoNombre,
-                                              @RequestParam(required = false) String subdecanoCedula,
-                                              @RequestParam(required = false) String subdecanoTelefono,
-                                              @RequestParam(required = false) String subdecanoCorreo) {
+            @RequestParam(required = false) String subdecanoNombre,
+            @RequestParam(required = false) String subdecanoCedula,
+            @RequestParam(required = false) String subdecanoTelefono,
+            @RequestParam(required = false) String subdecanoCorreo) {
         ArchivoDescargaDto descarga = asignacionPracticaService.obtenerAvalDescarga(
                 id, subdecanoNombre, subdecanoCedula, subdecanoTelefono, subdecanoCorreo);
-        return construirRespuestaPdf(descarga.contenido(), descarga.nombreArchivo());
-    }
-
-    private ResponseEntity<byte[]> construirRespuestaPdf(byte[] bytesPdf, String nombreArchivo) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition.inline().filename(nombreArchivo).build());
-        return new ResponseEntity<>(bytesPdf, headers, HttpStatus.OK);
+        return RespuestaArchivoUtil.previsualizar(descarga);
     }
 }

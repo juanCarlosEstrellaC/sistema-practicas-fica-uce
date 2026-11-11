@@ -5,6 +5,29 @@ import { CarreraDto } from '@/lib/tipos/pp/general-pp';
 import { RespuestaPaginada } from '@/lib/tipos/general';
 import { URL_BACKEND, obtenerCabecerasAutenticacion } from '@/lib/acciones/cliente-servidor';
 
+export async function obtenerCarreraPorIdAccion(
+  id: number | string
+): Promise<CarreraDto | null> {
+  try {
+    const cabeceras = await obtenerCabecerasAutenticacion();
+    const respuesta = await fetch(`${URL_BACKEND}/carreras/${id}`, {
+      method: 'GET',
+      headers: cabeceras,
+      cache: 'no-store',
+    });
+
+    if (!respuesta.ok) {
+      return null;
+    }
+
+    const resultado = await respuesta.json();
+    return (resultado.data as CarreraDto) || null;
+  } catch (error) {
+    console.error('Error en obtenerCarreraPorIdAccion:', error);
+    return null;
+  }
+}
+
 export async function obtenerCarrerasAccion(pagina: number = 0, tamanio: number = 100)
   : Promise<RespuestaPaginada<CarreraDto>> {
   try {

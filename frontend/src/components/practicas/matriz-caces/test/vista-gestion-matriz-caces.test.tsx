@@ -88,7 +88,6 @@ describe('VistaGestionMatrizCaces (Componente Modular Refactorizado)', () => {
     render(<VistaGestionMatrizCaces rol="SUBDECANO" periodoId={1} />);
 
     expect(await screen.findByText('Matrices CACES de la Facultad')).toBeInTheDocument();
-    expect(await screen.findByText('Consolidado Institucional')).toBeInTheDocument();
     expect(await screen.findByText('Ingeniería en Sistemas de Información')).toBeInTheDocument();
     expect(await screen.findByText('En Revisión (Subdecanato)')).toBeInTheDocument();
     expect(await screen.findByText('Oficializada')).toBeInTheDocument();

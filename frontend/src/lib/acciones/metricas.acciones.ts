@@ -4,8 +4,9 @@ import { URL_BACKEND, obtenerCabecerasAutenticacion } from './cliente-servidor';
 import { obtenerAsignacionesProyectosComunitariosAccion, obtenerEstudiantesDisponiblesAccion } from './vcs/asignacion-proyecto.acciones';
 import { obtenerProyectosComunitariosAccion } from './vcs/proyecto-comunitario.acciones';
 import { obtenerAsignacionesPracticasAccion } from './pp/asignacion-practica.acciones';
-import { obtenerCarrerasAccion } from './carrera.acciones';
+import { obtenerCarrerasAccion, obtenerCarreraPorIdAccion } from './carrera.acciones';
 import { obtenerPeriodosAcademicosAccion } from './periodo-academico.acciones';
+import { obtenerUsuarioPorIdAccion } from './usuario.acciones';
 import { CarreraDto } from '@/lib/tipos/pp/general-pp';
 
 export interface MetricasPpDto {
@@ -215,54 +216,121 @@ export async function obtenerMetricasDashboardGeneralAccion(
   filtros: FiltrosDashboardGeneral = {}
 ): Promise<MetricasDashboardGeneralDto> {
   if (filtros.rol === 'ESTUDIANTE') {
-    const [resPp, resVcs] = await Promise.all([
+    const [resPp, resVcs, usuarioEstudiante, carreraEstudiante] = await Promise.all([
       obtenerAsignacionesPracticasAccion({
         estudianteId: filtros.estudianteId,
-        periodoId: filtros.periodoId,
-        size: 1,
+        requiereCarta: true,
+        size: 100,
       }),
       obtenerAsignacionesProyectosComunitariosAccion({
         estudianteId: filtros.estudianteId,
-        periodoAcademicoId: filtros.periodoId,
-        size: 1,
+        size: 100,
       }),
+      filtros.estudianteId ? obtenerUsuarioPorIdAccion(filtros.estudianteId) : Promise.resolve(null),
+      filtros.carreraId ? obtenerCarreraPorIdAccion(filtros.carreraId) : Promise.resolve(null),
     ]);
 
-    const asigPp = resPp?.content?.[0] as any;
-    const asigVcs = resVcs?.content?.[0] as any;
+    const asignacionesPp = (resPp?.content || []) as any[];
+    const asignacionesPpVisibles = asignacionesPp.filter(
+      (a) => a.cartaAsignacionEnviada !== false
+    );
+    const asigPp =
+      asignacionesPpVisibles.find(
+        (a) =>
+          (!filtros.periodoId || Number(a.periodoAcademicoId) === Number(filtros.periodoId)) &&
+          a.estado !== 'CANCELADO' &&
+          a.estado !== 'REPROBADO'
+      ) ??
+      asignacionesPpVisibles.find(
+        (a) => a.estado !== 'CANCELADO' && a.estado !== 'REPROBADO'
+      ) ??
+      asignacionesPpVisibles[0];
+
+    const asignacionesVcs = (resVcs?.content || []) as any[];
+    const asigVcs =
+      asignacionesVcs.find(
+        (a) =>
+          (!filtros.periodoId || Number(a.periodoAcademicoId) === Number(filtros.periodoId)) &&
+          a.estado !== 'CANCELADO' &&
+          a.estado !== 'REPROBADO'
+      ) ??
+      asignacionesVcs.find(
+        (a) => a.estado !== 'CANCELADO' && a.estado !== 'REPROBADO'
+      ) ??
+      asignacionesVcs[0];
+
+    // UNICAMENTE cuando se envie la carta de asignacion ahi el estudiante recien puede ver la asignacion de pp, antes no.
+    const tienePracticaVisible = Boolean(asigPp && asigPp.cartaAsignacionEnviada !== false);
+    const asigPpVisible = tienePracticaVisible ? asigPp : undefined;
+
+    // Unicamente cuando el Subdecanato emite el aval/certificado (estado APROBADO/COMPLETADO) se acreditan horas validadas.
+    const practicaAprobada =
+      asigPpVisible?.estado === 'APROBADO' || asigPpVisible?.estado === 'COMPLETADO';
+    const vinculacionAprobada =
+      asigVcs?.estado === 'APROBADO' || asigVcs?.estado === 'COMPLETADO';
+
+    const horasPpSumadas = asignacionesPpVisibles.reduce((acumulado, a) => {
+      if (a.estado === 'APROBADO' || a.estado === 'COMPLETADO') {
+        return acumulado + (a.horasCompletadas || a.horasAsignadas || 0);
+      }
+      return acumulado;
+    }, 0);
+    const horasPracticaCompletadas = Math.max(
+      usuarioEstudiante?.horasAcumuladas || 0,
+      horasPpSumadas
+    );
+    const horasPracticaRequeridas =
+      usuarioEstudiante?.horasRequeridas ||
+      carreraEstudiante?.horasPractica ||
+      240;
+
+    const horasVcsSumadas = asignacionesVcs.reduce((acumulado, a) => {
+      if (a.estado === 'APROBADO' || a.estado === 'COMPLETADO') {
+        return acumulado + (a.horasCompletadas || a.horasAsignadas || 0);
+      }
+      return acumulado;
+    }, 0);
+    const horasVinculacionCompletadas = Math.max(
+      asigVcs?.horasAcumuladasEstudiante || 0,
+      horasVcsSumadas
+    );
+    const horasVinculacionRequeridas =
+      asigVcs?.horasRequeridasEstudiante ||
+      carreraEstudiante?.horasProyectosComunitarios ||
+      160;
 
     return {
       pp: {
         totalEstudiantes: 1,
-        estudiantesAsignados: asigPp ? 1 : 0,
-        estudiantesEnCurso: asigPp?.estado === 'EN_CURSO' ? 1 : 0,
-        estudiantesCompletados: asigPp?.estado === 'COMPLETADO' ? 1 : 0,
-        totalConvenios: asigPp?.convenioId ? 1 : 0,
+        estudiantesAsignados: asigPpVisible ? 1 : 0,
+        estudiantesEnCurso: asigPpVisible?.estado === 'EN_CURSO' ? 1 : 0,
+        estudiantesCompletados: practicaAprobada ? 1 : 0,
+        totalConvenios: asigPpVisible?.convenioId ? 1 : 0,
         conveniosPorExpirar: 0,
         conveniosExpirados: 0,
-        totalTutores: asigPp?.tutorAcademico ? 1 : 0,
+        totalTutores: asigPpVisible?.tutorAcademico ? 1 : 0,
         reportesPendientes: 0,
       },
       vcs: {
         totalAsignaciones: asigVcs ? 1 : 0,
         asignacionesEnCurso: asigVcs?.estado === 'EN_CURSO' ? 1 : 0,
-        asignacionesCompletadas: asigVcs?.estado === 'APROBADO' ? 1 : 0,
+        asignacionesCompletadas: vinculacionAprobada ? 1 : 0,
         totalProyectos: (asigVcs?.proyectoId || asigVcs?.proyectoComunitario) ? 1 : 0,
         proyectosEnDesarrollo: asigVcs?.estado === 'EN_CURSO' ? 1 : 0,
-        proyectosFinalizados: asigVcs?.estado === 'APROBADO' ? 1 : 0,
+        proyectosFinalizados: vinculacionAprobada ? 1 : 0,
         proyectosActivos: asigVcs?.estado === 'EN_CURSO' ? 1 : 0,
         estudiantesPendientesAsignacion: 0,
       },
       estudiante: {
-        tienePractica: Boolean(asigPp),
-        horasPracticaCompletadas: asigPp?.horasCompletadas || 0,
-        horasPracticaAsignadas: asigPp?.horasAsignadas || 240,
-        estadoPractica: asigPp?.estado,
-        fasePractica: asigPp?.fase,
-        institucionPractica: asigPp?.institucion || asigPp?.convenioInstitucion,
+        tienePractica: tienePracticaVisible,
+        horasPracticaCompletadas,
+        horasPracticaAsignadas: horasPracticaRequeridas,
+        estadoPractica: asigPpVisible?.estado,
+        fasePractica: asigPpVisible?.fase,
+        institucionPractica: asigPpVisible?.institucion || asigPpVisible?.convenioInstitucion,
         tieneVinculacion: Boolean(asigVcs),
-        horasVinculacionCompletadas: asigVcs?.horasCompletadas || 0,
-        horasVinculacionAsignadas: asigVcs?.horasAsignadas || 80,
+        horasVinculacionCompletadas,
+        horasVinculacionAsignadas: horasVinculacionRequeridas,
         estadoVinculacion: asigVcs?.estado,
         faseVinculacion: asigVcs?.faseActual,
         proyectoVinculacion: asigVcs?.nombreProyecto,
@@ -330,6 +398,38 @@ export async function obtenerMetricasDashboardGeneralAccion(
         totalPeriodos: periodosRes.totalElements || (periodosRes.content?.length ?? 0),
         desgloseCarreras,
       },
+    };
+  }
+
+  if (filtros.rol === 'TUTOR_ACADEMICO') {
+    const [metricasPpBase, metricasVcs, resAsigPp] = await Promise.all([
+      obtenerMetricasPpAccion(filtros),
+      obtenerMetricasVcsAccion(filtros),
+      obtenerAsignacionesPracticasAccion({
+        carreraId: filtros.carreraId,
+        periodoId: filtros.periodoId,
+        tutorId: filtros.tutorId,
+        requiereCarta: true,
+        page: 0,
+        size: 100,
+      }),
+    ]);
+
+    // Unicamente cuando el DC envie la carta de asignacion al TA deben aparecer sus asignaciones y metricas
+    const asignacionesConCarta = (resAsigPp?.content || []).filter(
+      (asig: any) => asig.cartaAsignacionEnviada !== false
+    );
+
+    return {
+      pp: {
+        ...metricasPpBase,
+        estudiantesAsignados: asignacionesConCarta.length,
+        estudiantesEnCurso: asignacionesConCarta.filter((a: any) => a.estado === 'EN_CURSO').length,
+        estudiantesCompletados: asignacionesConCarta.filter(
+          (a: any) => a.estado === 'APROBADO' || a.estado === 'COMPLETADO'
+        ).length,
+      },
+      vcs: metricasVcs,
     };
   }
 

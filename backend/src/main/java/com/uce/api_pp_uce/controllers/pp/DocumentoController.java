@@ -1,6 +1,7 @@
 package com.uce.api_pp_uce.controllers.pp;
 
 import com.uce.api_pp_uce.common.RespuestaApi;
+import com.uce.api_pp_uce.common.RespuestaArchivoUtil;
 import com.uce.api_pp_uce.dtos.ArchivoDescargaDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoPortafolioDto;
 import com.uce.api_pp_uce.dtos.pp.DocumentoRevisarDto;
@@ -11,10 +12,6 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -77,30 +74,13 @@ public class DocumentoController {
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> previsualizarDocumento(@PathVariable Long id) {
         ArchivoDescargaDto descarga = documentoService.obtenerDocumentoDescarga(id);
-        return construirRespuestaArchivo(descarga.contenido(), descarga.nombreArchivo(), descarga.contentType(), false);
+        return RespuestaArchivoUtil.previsualizar(descarga);
     }
 
     @GetMapping("/{id}/descargar")
     @PreAuthorize("hasAnyRole('SUBDECANO', 'DIRECTOR_CARRERA', 'COORDINADOR_PRACTICAS', 'TUTOR_ACADEMICO', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> descargarDocumento(@PathVariable Long id) {
         ArchivoDescargaDto descarga = documentoService.obtenerDocumentoDescarga(id);
-        return construirRespuestaArchivo(descarga.contenido(), descarga.nombreArchivo(), descarga.contentType(), true);
-    }
-
-    private ResponseEntity<byte[]> construirRespuestaArchivo(byte[] bytes, String nombreArchivo, String contentType, boolean forzarDescarga) {
-        HttpHeaders headers = new HttpHeaders();
-        MediaType mediaType = MediaType.APPLICATION_PDF;
-        if (contentType != null && !contentType.isBlank()) {
-            try {
-                mediaType = MediaType.parseMediaType(contentType);
-            } catch (Exception ignored) {
-            }
-        }
-        headers.setContentType(mediaType);
-        ContentDisposition disposition = (forzarDescarga ? ContentDisposition.attachment() : ContentDisposition.inline())
-                .filename(nombreArchivo)
-                .build();
-        headers.setContentDisposition(disposition);
-        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+        return RespuestaArchivoUtil.descargar(descarga);
     }
 }

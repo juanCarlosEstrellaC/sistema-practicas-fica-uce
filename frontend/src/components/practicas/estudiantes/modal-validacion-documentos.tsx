@@ -14,7 +14,10 @@ import { Label } from '@/components/ui/label';
 import { CheckCircle2, AlertCircle, FileText, X, Loader2 } from 'lucide-react';
 import { DocumentoDto } from '@/lib/tipos/pp/general-pp';
 import { obtenerEtiquetaTipoDocumento } from '@/lib/utilidades/etiquetas';
-import { adaptarUrlProxy } from '@/lib/utilidades/proxy-url';
+import {
+  adaptarUrlProxy,
+  obtenerUrlPrevisualizacionDocumentoPortafolio,
+} from '@/lib/utilidades/proxy-url';
 import { formatearFechaCorta } from '@/lib/utilidades/fechas';
 import {
   revisarDocumentoPortafolioAccion,
@@ -66,6 +69,25 @@ function obtenerNombrePdf(doc?: DocumentoDto | null): string {
   return doc.url ? 'documento.pdf' : '';
 }
 
+function obtenerIndiceInicialNoAprobado(docs: DocumentoDto[], asignacionId?: string): number {
+  const filtrados = asignacionId
+    ? docs.filter(
+        (d: any) =>
+          d.tipo === 'CV' ||
+          d.tipo === 'DOCUMENTO_IDENTIDAD' ||
+          !d.asignacionId ||
+          String(d.asignacionId) === String(asignacionId)
+      )
+    : docs;
+
+  const primerPendienteIdx = ORDEN_DOCUMENTOS.findIndex((tipo) => {
+    const doc = filtrados.find((d: any) => d.tipo === tipo);
+    return !doc || doc.estado !== 'APROBADO';
+  });
+
+  return primerPendienteIdx !== -1 ? primerPendienteIdx : 0;
+}
+
 export function ModalValidacionDocumentos({
   open,
   onOpenChange,
@@ -75,7 +97,9 @@ export function ModalValidacionDocumentos({
   asignacionId,
   onValidacionCompleta,
 }: ModalValidacionDocumentosProps) {
-  const [indiceDocActual, setIndiceDocActual] = useState(0);
+  const [indiceDocActual, setIndiceDocActual] = useState(() =>
+    obtenerIndiceInicialNoAprobado(documentos || [], asignacionId)
+  );
   const [rechazoOpen, setRechazoOpen] = useState(false);
   const [observacion, setObservacion] = useState('');
   const [estaEnviando, setEstaEnviando] = useState(false);
@@ -87,18 +111,31 @@ export function ModalValidacionDocumentos({
         .then((docs) => {
           if (docs && docs.length > 0) {
             setListaDocumentos(docs);
+            setIndiceDocActual(obtenerIndiceInicialNoAprobado(docs, asignacionId));
           } else if (documentos && documentos.length > 0) {
             setListaDocumentos(documentos);
+            setIndiceDocActual(obtenerIndiceInicialNoAprobado(documentos, asignacionId));
           }
         })
         .catch((err) => console.error('Error al cargar documentos del estudiante:', err));
     } else if (documentos && documentos.length > 0) {
       setListaDocumentos(documentos);
+      setIndiceDocActual(obtenerIndiceInicialNoAprobado(documentos, asignacionId));
     }
-  }, [open, estudianteId, documentos]);
+  }, [open, estudianteId, documentos, asignacionId]);
+
+  const documentosFiltrados = asignacionId
+    ? listaDocumentos.filter(
+        (d: any) =>
+          d.tipo === 'CV' ||
+          d.tipo === 'DOCUMENTO_IDENTIDAD' ||
+          !d.asignacionId ||
+          String(d.asignacionId) === String(asignacionId)
+      )
+    : listaDocumentos;
 
   const documentosAValidar: DocumentoDto[] = ORDEN_DOCUMENTOS.map((tipo) => {
-    const doc = listaDocumentos.find((d: any) => d.tipo === tipo);
+    const doc = documentosFiltrados.find((d: any) => d.tipo === tipo);
     return (
       doc || {
         id: '0',
@@ -121,6 +158,8 @@ export function ModalValidacionDocumentos({
   if (documentosAValidar.length === 0) return null;
 
   const documentoActual = documentosAValidar[indiceDocActual];
+  const esDocumentoBaseEstudiante =
+    documentoActual?.tipo === 'CV' || documentoActual?.tipo === 'DOCUMENTO_IDENTIDAD';
 
   const manejarValidacion = async (estado: 'APROBADO' | 'RECHAZADO' | 'PENDIENTE_REVISION') => {
     if (estado === 'RECHAZADO' && !observacion.trim()) {
@@ -219,7 +258,12 @@ export function ModalValidacionDocumentos({
     }
   };
 
-  const urlDocumentoSegura = documentoActual?.url ? adaptarUrlProxy(documentoActual.url) : '';
+  const urlDocumentoBase = documentoActual?.url
+    ? documentoActual.id && String(documentoActual.id) !== '0'
+      ? obtenerUrlPrevisualizacionDocumentoPortafolio(documentoActual.id)
+      : documentoActual.url
+    : '';
+  const urlDocumentoSegura = urlDocumentoBase ? adaptarUrlProxy(urlDocumentoBase) : '';
   const nombrePdfActual = documentoActual ? obtenerNombrePdf(documentoActual) : '';
   const etiquetaTipoActual = documentoActual ? obtenerEtiquetaTipoDocumento(documentoActual.tipo) : '';
 
@@ -314,16 +358,22 @@ export function ModalValidacionDocumentos({
                     <div className="flex items-center justify-between p-2">
                       <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="w-5 h-5" />
-                        <span className="font-medium text-sm">Este documento ya ha sido aprobado.</span>
+                        <span className="font-medium text-sm">
+                          {esDocumentoBaseEstudiante
+                            ? 'Este documento ya fue aprobado y se reutiliza en todas las prácticas del estudiante.'
+                            : 'Este documento ya ha sido aprobado.'}
+                        </span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => manejarValidacion('PENDIENTE_REVISION')}
-                        disabled={estaEnviando}
-                      >
-                        Revertir a Pendiente
-                      </Button>
+                      {!esDocumentoBaseEstudiante && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => manejarValidacion('PENDIENTE_REVISION')}
+                          disabled={estaEnviando}
+                        >
+                          Revertir a Pendiente
+                        </Button>
+                      )}
                     </div>
                   ) : documentoActual.estado === 'RECHAZADO' ? (
                     <div className="flex items-center justify-between p-2">

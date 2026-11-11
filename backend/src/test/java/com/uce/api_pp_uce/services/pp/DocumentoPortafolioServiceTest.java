@@ -393,4 +393,36 @@ class DocumentoPortafolioServiceTest {
         assertEquals("Corregir formato", paraCpp.get(2).observacion());
         assertEquals("Falta sello", paraCpp.get(3).observacion());
     }
+
+    @Test
+    @DisplayName("Debe impedir rechazar o revertir CV o Documento de Identidad cuando ya fue APROBADO")
+    void revisarDocumento_CvOCedulaYaAprobado_LanzaNegocioException() {
+        documentoMock.setTipo(TipoDocumento.CV);
+        documentoMock.setEstado(EstadoDocumento.APROBADO);
+
+        DocumentoRevisarDto dtoRechazar = new DocumentoRevisarDto(EstadoDocumento.RECHAZADO, "Actualizar datos");
+        DocumentoRevisarDto dtoRevertir = new DocumentoRevisarDto(EstadoDocumento.PENDIENTE_REVISION, null);
+
+        when(documentoRepository.findById(100L)).thenReturn(Optional.of(documentoMock));
+
+        assertThrows(NegocioException.class, () -> documentoService.revisarDocumento(100L, dtoRechazar));
+        assertThrows(NegocioException.class, () -> documentoService.revisarDocumento(100L, dtoRevertir));
+    }
+
+    @Test
+    @DisplayName("Debe impedir resubir o sobreescribir CV o Documento de Identidad cuando ya fue APROBADO")
+    void resubirOSubir_CvOCedulaYaAprobado_LanzaNegocioException() {
+        documentoMock.setTipo(TipoDocumento.DOCUMENTO_IDENTIDAD);
+        documentoMock.setEstado(EstadoDocumento.APROBADO);
+
+        DocumentoResubirDto dtoResubir = new DocumentoResubirDto("/archivos/nueva_cedula.pdf", "nueva_cedula.pdf");
+        DocumentoSubirDto dtoSubir = new DocumentoSubirDto(10L, TipoDocumento.DOCUMENTO_IDENTIDAD, "/archivos/nueva_cedula.pdf", "nueva_cedula.pdf");
+
+        when(documentoRepository.findById(100L)).thenReturn(Optional.of(documentoMock));
+        when(usuarioRepository.findById(10L)).thenReturn(Optional.of(estudianteMock));
+        when(documentoRepository.findByEstudianteIdOrderByIdDesc(10L)).thenReturn(List.of(documentoMock));
+
+        assertThrows(NegocioException.class, () -> documentoService.resubirDocumento(100L, dtoResubir, estudianteMock));
+        assertThrows(NegocioException.class, () -> documentoService.subirDocumentoPortafolio(dtoSubir, estudianteMock));
+    }
 }

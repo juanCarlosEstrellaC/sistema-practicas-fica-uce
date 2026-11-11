@@ -33,10 +33,16 @@ import com.uce.api_pp_uce.repositories.pp.AsignacionPracticaRepository;
 import com.uce.api_pp_uce.repositories.pp.ConvenioRepository;
 import com.uce.api_pp_uce.repositories.pp.DocumentoPortafolioRepository;
 import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
+import com.uce.api_pp_uce.repositories.vcs.ProcesoVinculacionRepository;
 import com.uce.api_pp_uce.services.ArchivoService;
 import com.uce.api_pp_uce.services.CorreoService;
 import com.uce.api_pp_uce.services.NotificacionService;
+import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.pp.impl.AsignacionPracticaServiceImpl;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.mapstruct.factory.Mappers;
@@ -49,11 +55,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AsignacionPracticaServiceTest {
@@ -80,6 +102,9 @@ class AsignacionPracticaServiceTest {
     private ProcesoPracticaRepository procesoPracticaRepository;
 
     @Mock
+    private ProcesoVinculacionRepository procesoVinculacionRepository;
+
+    @Mock
     private CartaAsignacionPdfExportador cartaAsignacionPdfExportador;
 
     @Mock
@@ -92,7 +117,7 @@ class AsignacionPracticaServiceTest {
     private ArchivoService archivoService;
 
     @Mock
-    private com.uce.api_pp_uce.services.UsuarioAutenticadoService usuarioAutenticadoService;
+    private UsuarioAutenticadoService usuarioAutenticadoService;
 
     @InjectMocks
     private AsignacionPracticaServiceImpl asignacionPracticaService;
@@ -353,7 +378,7 @@ class AsignacionPracticaServiceTest {
     }
 
     @Test
-    @DisplayName("Deberia firmar registro y pasar a fase de finalizacion (Caso Feliz)")
+    @DisplayName("Deberia firmar registro y pasar a fase de finalizacion manteniendo horas completadas en 0 hasta emision de aval")
     void firmarRegistroDesarrollo_Exitoso() {
         when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
         when(asignacionPracticaRepository.save(any(AsignacionPractica.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -365,7 +390,8 @@ class AsignacionPracticaServiceTest {
 
         assertNotNull(resultado);
         assertEquals(FaseActualPractica.FINALIZACION, asignacionMock.getFase());
-        assertEquals(240, asignacionMock.getHorasCompletadas());
+        assertEquals(EstadoAsignacion.EN_CURSO, asignacionMock.getEstado());
+        assertEquals(0, asignacionMock.getHorasCompletadas());
         assertEquals(fechaFinValida, asignacionMock.getFechaFin());
         verify(documentoRepository, times(3)).save(any(DocumentoPortafolio.class));
     }
@@ -580,11 +606,41 @@ class AsignacionPracticaServiceTest {
     }
 
     @Test
-    @DisplayName("Deberia generar aval exitosamente marcando asignacion APROBADO y documento APROBADO")
+    @DisplayName("Deberia generar aval exitosamente validando horas, marcando asignacion APROBADO y completando proceso")
     void generarAval_Exitoso_MarcaAprobadoYGuardaDocumento() {
         String urlFirmada = "/archivos_subidos/practicas/avales/aval_firmado_100.pdf";
         asignacionMock.setValidadoCpp(true);
         asignacionMock.setEstado(EstadoAsignacion.EN_CURSO);
+        asignacionMock.setHorasCompletadas(0);
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+        when(documentoRepository.existsByAsignacionIdAndTipo(100L, TipoDocumento.AVAL)).thenReturn(false);
+        when(documentoRepository.findByAsignacionIdAndTipo(100L, TipoDocumento.AVAL)).thenReturn(Optional.empty());
+        when(procesoVinculacionRepository.findByEstudianteId(10L)).thenReturn(Optional.empty());
+        when(asignacionPracticaRepository.save(any(AsignacionPractica.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AsignacionPracticaDetalleDto resultado = asignacionPracticaService.generarAval(100L, urlFirmada);
+
+        assertNotNull(resultado);
+        assertEquals(EstadoAsignacion.APROBADO, asignacionMock.getEstado());
+        assertEquals(240, asignacionMock.getHorasCompletadas());
+        assertEquals(240, procesoMock.getHorasAcumuladas());
+        assertEquals(EstadoProceso.COMPLETADO, procesoMock.getEstado());
+        verify(documentoRepository, times(1)).save(argThat(doc ->
+                doc.getTipo() == TipoDocumento.AVAL &&
+                urlFirmada.equals(doc.getUrl()) &&
+                doc.getEstado() == EstadoDocumento.APROBADO &&
+                Boolean.TRUE.equals(doc.getFirmado())
+        ));
+    }
+
+    @Test
+    @DisplayName("Deberia acreditar horas parciales al generar aval sin completar proceso si no alcanza horas requeridas")
+    void generarAval_HorasParciales_SumaHorasSinCompletarProceso() {
+        String urlFirmada = "/archivos_subidos/practicas/avales/aval_firmado_parcial.pdf";
+        asignacionMock.setValidadoCpp(true);
+        asignacionMock.setEstado(EstadoAsignacion.EN_CURSO);
+        asignacionMock.setHorasAsignadas(120);
+        asignacionMock.setHorasCompletadas(0);
         when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
         when(documentoRepository.existsByAsignacionIdAndTipo(100L, TipoDocumento.AVAL)).thenReturn(false);
         when(documentoRepository.findByAsignacionIdAndTipo(100L, TipoDocumento.AVAL)).thenReturn(Optional.empty());
@@ -594,12 +650,9 @@ class AsignacionPracticaServiceTest {
 
         assertNotNull(resultado);
         assertEquals(EstadoAsignacion.APROBADO, asignacionMock.getEstado());
-        verify(documentoRepository, times(1)).save(argThat(doc ->
-                doc.getTipo() == TipoDocumento.AVAL &&
-                urlFirmada.equals(doc.getUrl()) &&
-                doc.getEstado() == EstadoDocumento.APROBADO &&
-                Boolean.TRUE.equals(doc.getFirmado())
-        ));
+        assertEquals(120, asignacionMock.getHorasCompletadas());
+        assertEquals(120, procesoMock.getHorasAcumuladas());
+        assertEquals(EstadoProceso.EN_CURSO, procesoMock.getEstado());
     }
 
     @Test
@@ -737,6 +790,122 @@ class AsignacionPracticaServiceTest {
         when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
 
         assertThrows(AccessDeniedException.class, () -> asignacionPracticaService.buscarDetallePorId(100L));
+    }
+
+    @Test
+    @DisplayName("buscarDetallePorId - Lanza AccessDeniedException cuando estudiante intenta acceder sin que la carta de asignación haya sido enviada")
+    void buscarDetallePorId_EstudianteSinCartaEnviada_LanzaAccessDeniedException() {
+        Usuario estudiante = new Usuario();
+        estudiante.setId(estudianteMock.getId());
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudiante);
+
+        asignacionMock.setCartaAsignacionEnviada(false);
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+        when(documentoRepository.existsByAsignacionIdAndTipo(100L, TipoDocumento.CARTA_ASIGNACION)).thenReturn(false);
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> asignacionPracticaService.buscarDetallePorId(100L));
+        assertTrue(ex.getMessage().contains("carta de asignación"));
+    }
+
+    @Test
+    @DisplayName("buscarDetallePorId - Retorna detalle cuando la carta de asignación ya fue enviada")
+    void buscarDetallePorId_EstudianteConCartaEnviada_RetornaDetalle() {
+        Usuario estudiante = new Usuario();
+        estudiante.setId(estudianteMock.getId());
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudiante);
+
+        asignacionMock.setCartaAsignacionEnviada(true);
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+
+        AsignacionPracticaDetalleDto resultado = asignacionPracticaService.buscarDetallePorId(100L);
+        assertNotNull(resultado);
+        assertEquals(100L, resultado.id());
+        assertTrue(resultado.cartaAsignacionEnviada());
+    }
+
+    @Test
+    @DisplayName("buscarConFiltros - Fuerza requiereCarta = true y estudianteId cuando el usuario autenticado es estudiante")
+    void buscarConFiltros_EstudianteAutenticado_FuerzaRequiereCartaYFiltroEstudiante() {
+        Usuario estudiante = new Usuario();
+        estudiante.setId(estudianteMock.getId());
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(estudiante);
+
+        Page<AsignacionPractica> paginaMock = new PageImpl<>(List.of(asignacionMock));
+        when(asignacionPracticaRepository.findByFiltros(
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(estudianteMock.getId()), eq(true), any(Pageable.class)))
+                .thenReturn(paginaMock);
+
+        Page<AsignacionPracticaDetalleDto> resultado = asignacionPracticaService.buscarConFiltros(
+                null, null, null, null, null, null, null, false, PageRequest.of(0, 10));
+
+        assertNotNull(resultado);
+        assertEquals(1, resultado.getContent().size());
+        verify(asignacionPracticaRepository).findByFiltros(
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(estudianteMock.getId()), eq(true), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("buscarConFiltros - Fuerza requiereCarta = true y tutorId cuando el usuario autenticado es tutor académico")
+    void buscarConFiltros_TutorAutenticado_FuerzaRequiereCartaYFiltroTutor() {
+        Usuario tutor = new Usuario();
+        tutor.setId(tutorMock.getId());
+        tutor.setRol(RolUsuario.TUTOR_ACADEMICO);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutor);
+
+        Page<AsignacionPractica> paginaMock = new PageImpl<>(List.of(asignacionMock));
+        when(asignacionPracticaRepository.findByFiltros(
+                isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(tutorMock.getId()), isNull(), eq(true), any(Pageable.class)))
+                .thenReturn(paginaMock);
+
+        Page<AsignacionPracticaDetalleDto> resultado = asignacionPracticaService.buscarConFiltros(
+                null, null, null, null, null, null, null, false, PageRequest.of(0, 10));
+
+        assertNotNull(resultado);
+        assertEquals(1, resultado.getContent().size());
+        verify(asignacionPracticaRepository).findByFiltros(
+                isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(tutorMock.getId()), isNull(), eq(true), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("buscarDetallePorId - Lanza AccessDeniedException cuando tutor académico intenta acceder sin que la carta de asignación haya sido enviada")
+    void buscarDetallePorId_TutorSinCartaEnviada_LanzaAccessDeniedException() {
+        Usuario tutor = new Usuario();
+        tutor.setId(tutorMock.getId());
+        tutor.setRol(RolUsuario.TUTOR_ACADEMICO);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutor);
+
+        asignacionMock.setCartaAsignacionEnviada(false);
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+        when(documentoRepository.existsByAsignacionIdAndTipo(100L, TipoDocumento.CARTA_ASIGNACION)).thenReturn(false);
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> asignacionPracticaService.buscarDetallePorId(100L));
+        assertTrue(ex.getMessage().contains("carta de asignación"));
+    }
+
+    @Test
+    @DisplayName("buscarDetallePorId - Retorna detalle al tutor académico cuando la carta de asignación ya fue enviada")
+    void buscarDetallePorId_TutorConCartaEnviada_RetornaDetalle() {
+        Usuario tutor = new Usuario();
+        tutor.setId(tutorMock.getId());
+        tutor.setRol(RolUsuario.TUTOR_ACADEMICO);
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(tutor);
+
+        asignacionMock.setCartaAsignacionEnviada(true);
+        when(asignacionPracticaRepository.findById(100L)).thenReturn(Optional.of(asignacionMock));
+
+        AsignacionPracticaDetalleDto resultado = asignacionPracticaService.buscarDetallePorId(100L);
+        assertNotNull(resultado);
+        assertEquals(100L, resultado.id());
+        assertTrue(resultado.cartaAsignacionEnviada());
     }
 
     @Test

@@ -112,6 +112,14 @@ public class DocumentoPortafolioServiceImpl implements DocumentoPortafolioServic
         DocumentoPortafolio doc = documentoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Documento no encontrado"));
 
+        boolean esDocumentoBaseEstudiante = (doc.getTipo() == TipoDocumento.CV
+                || doc.getTipo() == TipoDocumento.DOCUMENTO_IDENTIDAD);
+        if (esDocumentoBaseEstudiante
+                && doc.getEstado() == EstadoDocumento.APROBADO
+                && dto.estado() != EstadoDocumento.APROBADO) {
+            throw new NegocioException("La Hoja de Vida y el Documento de Identidad ya fueron aprobados y no pueden ser rechazados ni revertidos.");
+        }
+
         if (usuarioAutenticado != null) {
             RolUsuario rol = usuarioAutenticado.getRol();
             if (rol == RolUsuario.TUTOR_ACADEMICO) {
@@ -251,6 +259,10 @@ public class DocumentoPortafolioServiceImpl implements DocumentoPortafolioServic
     }
 
     private DocumentoPortafolioDto ejecutarResubida(DocumentoPortafolio doc, DocumentoResubirDto dto, Usuario estudiante) {
+        if ((doc.getTipo() == TipoDocumento.CV || doc.getTipo() == TipoDocumento.DOCUMENTO_IDENTIDAD)
+                && doc.getEstado() == EstadoDocumento.APROBADO) {
+            throw new NegocioException("Este documento ya fue aprobado previamente y no puede ser modificado.");
+        }
         doc.setUrl(dto.url());
         doc.setNombre(generarNombreDocumento(estudiante, doc.getTipo(), dto.nombre()));
         doc.setEstado(EstadoDocumento.PENDIENTE_REVISION);
@@ -311,6 +323,12 @@ public class DocumentoPortafolioServiceImpl implements DocumentoPortafolioServic
 
         DocumentoPortafolio doc = documentoRepository.findByEstudianteIdOrderByIdDesc(dto.estudianteId())
                 .stream().filter(d -> d.getTipo() == dto.tipo()).findFirst().orElse(new DocumentoPortafolio());
+
+        if (doc.getId() != null
+                && (dto.tipo() == TipoDocumento.CV || dto.tipo() == TipoDocumento.DOCUMENTO_IDENTIDAD)
+                && doc.getEstado() == EstadoDocumento.APROBADO) {
+            throw new NegocioException("Este documento ya fue aprobado previamente y no puede ser modificado.");
+        }
 
         doc.setEstudiante(estudiante);
         doc.setTipo(dto.tipo());
@@ -457,7 +475,12 @@ public class DocumentoPortafolioServiceImpl implements DocumentoPortafolioServic
                 Long tutorId = (doc.getAsignacion() != null && doc.getAsignacion().getTutorAcademico() != null)
                         ? doc.getAsignacion().getTutorAcademico().getId()
                         : null;
-                if (tutorId == null || !miId.equals(tutorId)) {
+                boolean esTutorDelEstudiante = (tutorId != null && miId.equals(tutorId))
+                        || (tutorId == null && doc.getEstudiante() != null
+                                && asignacionPracticaRepository.findByProcesoPracticaEstudianteId(doc.getEstudiante().getId())
+                                        .stream()
+                                        .anyMatch(a -> a.getTutorAcademico() != null && miId.equals(a.getTutorAcademico().getId())));
+                if (!esTutorDelEstudiante) {
                     throw new AccessDeniedException("No tiene permisos para acceder a este documento (no es el tutor asignado).");
                 }
             } else if (rol == RolUsuario.DIRECTOR_CARRERA || rol == RolUsuario.COORDINADOR_PRACTICAS) {
@@ -472,15 +495,23 @@ public class DocumentoPortafolioServiceImpl implements DocumentoPortafolioServic
         }
 
         String rutaLimpia = doc.getUrl() != null ? doc.getUrl().trim() : "";
-        if (rutaLimpia.startsWith("/")) {
-            rutaLimpia = rutaLimpia.substring(1);
-        }
-        if (rutaLimpia.startsWith("archivos_subidos/")) {
-            rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
+        int idxArchivos = rutaLimpia.indexOf("/archivos_subidos/");
+        if (idxArchivos != -1) {
+            rutaLimpia = rutaLimpia.substring(idxArchivos + "/archivos_subidos/".length());
+        } else {
+            if (rutaLimpia.startsWith("/")) {
+                rutaLimpia = rutaLimpia.substring(1);
+            }
+            if (rutaLimpia.startsWith("archivos_subidos/")) {
+                rutaLimpia = rutaLimpia.substring("archivos_subidos/".length());
+            }
         }
 
         Path carpetaBase = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
                 .toAbsolutePath().normalize();
+        if (!Files.exists(carpetaBase) && Files.exists(Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos"))) {
+            carpetaBase = Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos").toAbsolutePath().normalize();
+        }
         Path filePath = carpetaBase.resolve(rutaLimpia).normalize().toAbsolutePath();
 
         if (!filePath.startsWith(carpetaBase)) {
@@ -488,13 +519,26 @@ public class DocumentoPortafolioServiceImpl implements DocumentoPortafolioServic
         }
 
         if (!Files.exists(filePath)) {
-            Path posible = carpetaBase.resolve("practicas/portafolios")
-                    .resolve(Paths.get(rutaLimpia).getFileName()).normalize().toAbsolutePath();
-            if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
-                filePath = posible;
-            } else {
-                throw new RecursoNoEncontradoException("El archivo físico no existe en el servidor: " + filePath.getFileName());
+            String nombreArchivoPlano = Paths.get(rutaLimpia).getFileName().toString();
+            List<String> posiblesSubcarpetas = List.of(
+                    "practicas/portafolios",
+                    "practicas/cartas_asignacion",
+                    "practicas/avales",
+                    "practicas/convenios",
+                    "cartas_asignacion",
+                    "portafolios"
+            );
+            for (String sub : posiblesSubcarpetas) {
+                Path posible = carpetaBase.resolve(sub).resolve(nombreArchivoPlano).normalize().toAbsolutePath();
+                if (posible.startsWith(carpetaBase) && Files.exists(posible)) {
+                    filePath = posible;
+                    break;
+                }
             }
+        }
+
+        if (!Files.exists(filePath)) {
+            throw new RecursoNoEncontradoException("El archivo físico no existe en el servidor: " + filePath.getFileName());
         }
 
         byte[] contenido;

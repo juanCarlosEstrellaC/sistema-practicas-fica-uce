@@ -43,9 +43,9 @@ export function ColumnaConveniosAsignacion({
     <Card className="flex flex-col h-[560px] border-border/80 shadow-sm">
       <CardHeader className="px-3 border-b space-y-0.5">
         <CardTitle className="text-sm font-semibold flex items-center justify-between text-foreground">
-          <span className="flex items-center gap-0">
+          <span className="flex items-center gap-1">
             <Building2 className="h-4 w-4 text-primary" />
-            Convenio / Empresa
+             Convenio / Empresa
           </span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
             {conveniosFiltrados.length} disponibles
