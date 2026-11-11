@@ -41,7 +41,8 @@ export function adaptarUrlProxy(urlStr?: string | null): string {
     urlStr.startsWith('/documentos') ||
     urlStr.startsWith('/convenios') ||
     urlStr.startsWith('/proyectos-comunitarios') ||
-    urlStr.startsWith('/evidencias-vcs')
+    urlStr.startsWith('/evidencias-vcs') ||
+    urlStr.startsWith('/reportes-proyectos-vcs')
   ) {
     return `/api/proxy${urlStr}`;
   }
@@ -60,4 +61,25 @@ export function obtenerUrlPrevisualizacionAvalPp(asignacionId: number | string):
  */
 export function obtenerUrlPrevisualizacionCartaAsignacionPp(asignacionId: number | string): string {
   return `/asignaciones-practicas/${asignacionId}/carta-asignacion/preview`;
+}
+
+/**
+ * Retorna la URL relativa para descargar la Carta de Asignacion de practicas.
+ */
+export function obtenerUrlDescargaCartaAsignacionPp(asignacionId: number | string): string {
+  return `/asignaciones-practicas/${asignacionId}/carta-asignacion/descargar`;
+}
+
+/**
+ * Retorna la URL relativa para previsualizar un documento del portafolio con validacion BOLA/IDOR.
+ */
+export function obtenerUrlPrevisualizacionDocumentoPortafolio(documentoId: number | string): string {
+  return `/documentos/${documentoId}/preview`;
+}
+
+/**
+ * Retorna la URL relativa para descargar un documento del portafolio con validacion BOLA/IDOR.
+ */
+export function obtenerUrlDescargaDocumentoPortafolio(documentoId: number | string): string {
+  return `/documentos/${documentoId}/descargar`;
 }

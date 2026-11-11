@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,6 +48,13 @@ public class ManejadorExcepcionesGlobal {
     public ResponseEntity<RespuestaApi<Void>> manejarRecursoNoEncontradoException(RecursoNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND) //404 Not Found
                 .body(new RespuestaApi<>(false, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<RespuestaApi<Void>> manejarNoResourceFoundException(NoResourceFoundException ex) {
+        log.warn("Recurso estatico o ruta no encontrada: {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND) //404 Not Found
+                .body(new RespuestaApi<>(false, "El recurso solicitado no fue encontrado en el servidor.", null));
     }
 
     @ExceptionHandler({NegocioException.class, IllegalArgumentException.class, IllegalStateException.class})

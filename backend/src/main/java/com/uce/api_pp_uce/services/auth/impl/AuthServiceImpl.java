@@ -6,6 +6,7 @@ import com.uce.api_pp_uce.dtos.auth.RespuestaAuthDto;
 import com.uce.api_pp_uce.dtos.auth.RestaurarContraseniaDto;
 import com.uce.api_pp_uce.entities.TokenRecuperacionContrasenia;
 import com.uce.api_pp_uce.entities.Usuario;
+import com.uce.api_pp_uce.entities.pp.ProcesoPractica;
 import com.uce.api_pp_uce.enums.EstadoUsuario;
 import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.excepciones.CredencialesInvalidasException;
@@ -14,6 +15,7 @@ import com.uce.api_pp_uce.excepciones.RecursoNoEncontradoException;
 import com.uce.api_pp_uce.mapeadores.UsuarioMapeador;
 import com.uce.api_pp_uce.repositories.TokenRecuperacionContraseniaRepository;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
+import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
 import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
 import com.uce.api_pp_uce.security.UtilidadesJwt;
 import com.uce.api_pp_uce.security.ValidadorContraseniaNist;
@@ -54,6 +56,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder codificadorContrasenia;
     private final IntentosLoginService servicioIntentosLogin;
     private final UsuarioRepository usuarioRepository;
+    private final ProcesoPracticaRepository procesoPracticaRepository;
     private final TokenRecuperacionContraseniaRepository tokenRecuperacionContraseniaRepository;
     private final CorreoService correoService;
     private final UsuarioMapeador usuarioMapeador;
@@ -102,7 +105,22 @@ public class AuthServiceImpl implements AuthService {
         String tokenJwt = utilidadesJwt.generarToken(detallesUsuario);
 
         Usuario usuario = detallesUsuario.getUsuario();
-        UsuarioDto usuarioDto = usuarioMapeador.aDto(usuario);
+        Integer carreraId = (usuario.getCarrera() != null) ? usuario.getCarrera().getId() : null;
+        Integer horasRequeridas = null;
+        Integer horasAcumuladas = null;
+
+        if (usuario.getRol() == RolUsuario.ESTUDIANTE && carreraId != null && procesoPracticaRepository != null) {
+            Optional<ProcesoPractica> procesoOpt = procesoPracticaRepository.findByEstudianteIdAndCarreraId(usuario.getId(), carreraId);
+            if (procesoOpt.isPresent()) {
+                horasRequeridas = procesoOpt.get().getHorasRequeridas();
+                horasAcumuladas = procesoOpt.get().getHorasAcumuladas();
+            } else {
+                horasRequeridas = usuario.getCarrera().getHorasPractica() != null ? usuario.getCarrera().getHorasPractica() : 240;
+                horasAcumuladas = 0;
+            }
+        }
+
+        UsuarioDto usuarioDto = usuarioMapeador.aDto(usuario, horasRequeridas, horasAcumuladas);
 
         return new RespuestaAuthDto(tokenJwt, usuarioDto);
     }

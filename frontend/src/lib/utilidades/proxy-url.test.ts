@@ -11,6 +11,12 @@ describe('Utilidades de Proxy URL (lib/utilidades/proxy-url.ts)', () => {
       expect(adaptarUrlProxy('/asignaciones-practicas/1/carta-asignacion/preview')).toBe(
         '/api/proxy/asignaciones-practicas/1/carta-asignacion/preview'
       );
+      expect(adaptarUrlProxy('/reportes-proyectos-vcs/10/preview')).toBe(
+        '/api/proxy/reportes-proyectos-vcs/10/preview'
+      );
+      expect(adaptarUrlProxy('/reportes-proyectos-vcs/10/descargar')).toBe(
+        '/api/proxy/reportes-proyectos-vcs/10/descargar'
+      );
       expect(adaptarUrlProxy('/archivos_subidos/doc.pdf')).toBe('/api/proxy/archivos_subidos/doc.pdf');
       expect(adaptarUrlProxy('/archivos_subidos/avatars/1_abc.png')).toBe(
         '/api/proxy/archivos_subidos/avatars/1_abc.png'

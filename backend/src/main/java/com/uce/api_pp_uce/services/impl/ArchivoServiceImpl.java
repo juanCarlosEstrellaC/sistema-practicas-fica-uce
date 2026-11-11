@@ -56,8 +56,12 @@ public class ArchivoServiceImpl implements ArchivoService {
     }
 
     private Path obtenerRutaBase() {
-        return Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos")
-                .toAbsolutePath().normalize();
+        String baseConfig = rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos";
+        Path rutaBase = Paths.get(baseConfig).toAbsolutePath().normalize();
+        if (!Files.exists(rutaBase) && Files.exists(Paths.get("backend", baseConfig))) {
+            rutaBase = Paths.get("backend", baseConfig).toAbsolutePath().normalize();
+        }
+        return rutaBase;
     }
 
     private Path obtenerRutaAvatares() {

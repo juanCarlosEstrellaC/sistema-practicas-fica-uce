@@ -42,7 +42,7 @@ async function manejarProxy(peticion: NextRequest, { params }: { params: Promise
     const tipoContenido = cabecerasRespuesta.get('content-type') || '';
     const esArchivoSubido = rutaBackend.startsWith('archivos_subidos') || rutaBackend.startsWith('archivos/');
 
-    if (esArchivoSubido) {
+    if (esArchivoSubido && respuestaBackend.ok) {
       // Mitigacion Stored XSS y sniffeo de tipos MIME en archivos servidos por proxy
       cabecerasRespuesta.set('X-Content-Type-Options', 'nosniff');
 

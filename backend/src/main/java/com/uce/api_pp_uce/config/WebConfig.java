@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -16,7 +17,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registro) {
-        Path rutaCarga = Paths.get(rutaBaseAlmacenamiento).toAbsolutePath().normalize();
+        Path rutaCarga = Paths.get(rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos").toAbsolutePath().normalize();
+        if (!Files.exists(rutaCarga) && Files.exists(Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos"))) {
+            rutaCarga = Paths.get("backend", rutaBaseAlmacenamiento != null ? rutaBaseAlmacenamiento : "archivos_subidos").toAbsolutePath().normalize();
+        }
+
         String rutaAbsoluta = rutaCarga.toFile().getAbsolutePath().replace("\\", "/");
         if (!rutaAbsoluta.endsWith("/")) {
             rutaAbsoluta += "/";

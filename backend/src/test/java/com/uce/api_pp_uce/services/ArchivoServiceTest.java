@@ -11,9 +11,15 @@ import org.springframework.core.io.Resource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,12 +52,12 @@ class ArchivoServiceTest {
 
     @Test
     @DisplayName("Debe guardar avatar exitosamente en la carpeta unificada")
-    void guardarAvatarExitoso() {
+    void guardarAvatarExitoso() throws IOException {
         MockMultipartFile archivo = new MockMultipartFile(
                 "file",
                 "perfil.png",
                 "image/png",
-                "contenido-imagen".getBytes()
+                crearBytesPngValido()
         );
 
         String ruta = archivoService.guardarAvatar(archivo, "123");
@@ -133,7 +139,7 @@ class ArchivoServiceTest {
                 "file",
                 "convenio.pdf",
                 "application/pdf",
-                "contenido-pdf".getBytes()
+                crearBytesPdfValido()
         );
 
         String ruta = archivoService.subirArchivo(archivo, "convenios");
@@ -153,7 +159,7 @@ class ArchivoServiceTest {
                 "archivo",
                 "carta.pdf",
                 "application/pdf",
-                "contenido-carta".getBytes()
+                crearBytesPdfValido()
         );
 
         String ruta = archivoService.subirArchivo(archivo, TipoArchivoSubido.CARTAS_ASIGNACION);
@@ -168,12 +174,12 @@ class ArchivoServiceTest {
 
     @Test
     @DisplayName("Debe subir matriz caces en ods a su subcarpeta correspondiente")
-    void subirArchivoMatrizCacesOds() {
+    void subirArchivoMatrizCacesOds() throws IOException {
         MockMultipartFile archivo = new MockMultipartFile(
                 "archivo",
                 "matriz.ods",
                 "application/vnd.oasis.opendocument.spreadsheet",
-                "contenido-ods".getBytes()
+                crearBytesOdsValido()
         );
 
         String ruta = archivoService.subirArchivo(archivo, (String) null);
@@ -252,5 +258,28 @@ class ArchivoServiceTest {
     void eliminarArchivoNuloRetornaFalse() {
         assertFalse(archivoService.eliminarArchivo(null));
         assertFalse(archivoService.eliminarArchivo("   "));
+    }
+
+    private byte[] crearBytesPngValido() throws IOException {
+        BufferedImage imagen = new BufferedImage(2, 2, BufferedImage.TYPE_INT_ARGB);
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            ImageIO.write(imagen, "png", baos);
+            return baos.toByteArray();
+        }
+    }
+
+    private byte[] crearBytesPdfValido() {
+        return "%PDF-1.4\n%Prueba unitaria".getBytes(StandardCharsets.US_ASCII);
+    }
+
+    private byte[] crearBytesOdsValido() throws IOException {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ZipOutputStream zos = new ZipOutputStream(baos)) {
+            zos.putNextEntry(new ZipEntry("mimetype"));
+            zos.write("application/vnd.oasis.opendocument.spreadsheet".getBytes(StandardCharsets.US_ASCII));
+            zos.closeEntry();
+            zos.finish();
+            return baos.toByteArray();
+        }
     }
 }

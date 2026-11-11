@@ -1,15 +1,24 @@
 package com.uce.api_pp_uce.services.auth;
 
+import com.uce.api_pp_uce.dtos.UsuarioDto;
 import com.uce.api_pp_uce.dtos.auth.LoginDto;
+import com.uce.api_pp_uce.dtos.auth.RespuestaAuthDto;
 import com.uce.api_pp_uce.dtos.auth.RestaurarContraseniaDto;
+import com.uce.api_pp_uce.entities.Carrera;
 import com.uce.api_pp_uce.entities.TokenRecuperacionContrasenia;
 import com.uce.api_pp_uce.entities.Usuario;
+import com.uce.api_pp_uce.entities.pp.ProcesoPractica;
+import com.uce.api_pp_uce.enums.EstadoUsuario;
+import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.excepciones.CredencialesInvalidasException;
 import com.uce.api_pp_uce.excepciones.NegocioException;
 import com.uce.api_pp_uce.excepciones.RecursoNoEncontradoException;
 import com.uce.api_pp_uce.mapeadores.UsuarioMapeador;
 import com.uce.api_pp_uce.repositories.TokenRecuperacionContraseniaRepository;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
+import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
+import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
+import com.uce.api_pp_uce.security.UtilidadesJwt;
 import com.uce.api_pp_uce.security.ValidadorContraseniaNist;
 import com.uce.api_pp_uce.services.CorreoService;
 import com.uce.api_pp_uce.services.IntentosLoginService;
@@ -22,6 +31,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -30,10 +41,13 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +72,15 @@ public class AuthServiceTest {
 
     @Mock
     private UsuarioMapeador usuarioMapeador;
+
+    @Mock
+    private ProcesoPracticaRepository procesoPracticaRepository;
+
+    @Mock
+    private AuthenticationManager gestorAutenticacion;
+
+    @Mock
+    private UtilidadesJwt utilidadesJwt;
 
     @Spy
     private ValidadorContraseniaNist validadorContraseniaNist = new ValidadorContraseniaNist();
@@ -199,7 +222,7 @@ public class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Deberia lanzar excepcion si se solicita restauracion antes de los 5 minutos de cooldown")
+    @DisplayName("Deberia omitir el reenvio silenciosamente si se solicita restauracion antes de los 5 minutos de cooldown")
     void solicitarRestaurarContraseniaBloqueadoPorCooldown() {
         Usuario usuario = new Usuario();
         usuario.setId(30L);
@@ -213,8 +236,10 @@ public class AuthServiceTest {
         when(usuarioRepository.findByCorreo("alumno@uce.edu.ec")).thenReturn(Optional.of(usuario));
         when(tokenRecuperacionContraseniaRepository.findByUsuarioId(30L)).thenReturn(Optional.of(tokenExistente));
 
-        NegocioException excepcion = assertThrows(NegocioException.class, () -> authService.solicitarRestaurarContrasenia("alumno@uce.edu.ec"));
-        assertEquals("Por favor espere 5 minutos antes de solicitar otro correo.", excepcion.getMessage());
+        assertDoesNotThrow(() -> authService.solicitarRestaurarContrasenia("alumno@uce.edu.ec"));
+
+        verify(tokenRecuperacionContraseniaRepository, times(0)).save(any());
+        verify(correoService, times(0)).enviarCorreoHtml(anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -229,6 +254,44 @@ public class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("Deberia resolver horasRequeridas y horasAcumuladas desde ProcesoPractica al iniciar sesion un estudiante")
+    void loginEstudianteConProcesoPractica() {
+        LoginDto dto = new LoginDto("estudiante@uce.edu.ec", "Clave123!");
+
+        Carrera carrera = new Carrera();
+        carrera.setId(1);
+        carrera.setHorasPractica(240);
+
+        Usuario estudiante = new Usuario();
+        estudiante.setId(50L);
+        estudiante.setCorreo("estudiante@uce.edu.ec");
+        estudiante.setRol(RolUsuario.ESTUDIANTE);
+        estudiante.setEstado(EstadoUsuario.ACTIVO);
+        estudiante.setCarrera(carrera);
+
+        ProcesoPractica proceso = new ProcesoPractica();
+        proceso.setHorasRequeridas(240);
+        proceso.setHorasAcumuladas(80);
+
+        Authentication authMock = mock(Authentication.class);
+        DetallesUsuarioImpl detalles = new DetallesUsuarioImpl(estudiante);
+        when(authMock.getPrincipal()).thenReturn(detalles);
+
+        when(usuarioRepository.findByCorreo("estudiante@uce.edu.ec")).thenReturn(Optional.of(estudiante));
+        when(gestorAutenticacion.authenticate(any())).thenReturn(authMock);
+        when(utilidadesJwt.generarToken(detalles)).thenReturn("jwt-token");
+        when(procesoPracticaRepository.findByEstudianteIdAndCarreraId(50L, 1)).thenReturn(Optional.of(proceso));
+
+        UsuarioDto usuarioDtoMock = mock(UsuarioDto.class);
+        when(usuarioMapeador.aDto(estudiante, 240, 80)).thenReturn(usuarioDtoMock);
+
+        RespuestaAuthDto respuesta = authService.login(dto);
+
+        assertNotNull(respuesta);
+        verify(usuarioMapeador, times(1)).aDto(estudiante, 240, 80);
+    }
+
+    @Test
     @DisplayName("Deberia lanzar excepcion si el correo no existe al iniciar sesion sin contar intento")
     void loginUsuarioNoExiste() {
         LoginDto dto = new LoginDto("noexiste@uce.edu.ec", "Clave123!");
@@ -236,6 +299,6 @@ public class AuthServiceTest {
 
         CredencialesInvalidasException ex = assertThrows(CredencialesInvalidasException.class, () -> authService.login(dto));
         assertEquals("Correo o contraseña incorrectos.", ex.getMessage());
-        verify(servicioIntentosLogin, org.mockito.Mockito.never()).loginFallido(anyString());
+        verify(servicioIntentosLogin, never()).loginFallido(anyString());
     }
 }

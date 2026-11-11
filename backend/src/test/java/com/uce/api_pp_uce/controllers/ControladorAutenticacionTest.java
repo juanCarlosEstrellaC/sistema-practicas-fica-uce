@@ -212,6 +212,6 @@ class ControladorAutenticacionTest {
                 .content(objectMapper.writeValueAsString(peticion)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.exito").value(true))
-                .andExpect(jsonPath("$.mensaje").value("Se ha enviado un correo con las instrucciones"));
+                .andExpect(jsonPath("$.mensaje").value("Si el correo coincide con una cuenta activa, recibirás un mensaje con las instrucciones."));
     }
 }

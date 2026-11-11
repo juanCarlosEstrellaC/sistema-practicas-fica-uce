@@ -6,10 +6,27 @@ const URL_BACKEND = process.env.BACKEND_URL || 'http://localhost:8080/api/v1';
 export async function POST(peticion: Request) {
   try {
     const cuerpo = await peticion.json();
+    const cabecerasBackend: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Preservar la IP real del cliente tras Cloudflare Tunnel / proxy reverso para el rate limit
+    const ipCloudflare = peticion.headers.get('cf-connecting-ip');
+    const ipReenviada = peticion.headers.get('x-forwarded-for');
+    const ipReal = peticion.headers.get('x-real-ip');
+
+    if (ipCloudflare) {
+      cabecerasBackend['CF-Connecting-IP'] = ipCloudflare;
+    }
+    if (ipReenviada) {
+      cabecerasBackend['X-Forwarded-For'] = ipReenviada;
+    } else if (ipReal) {
+      cabecerasBackend['X-Forwarded-For'] = ipReal;
+    }
 
     const respuesta = await fetch(`${URL_BACKEND}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecerasBackend,
       body: JSON.stringify(cuerpo),
     });
 
