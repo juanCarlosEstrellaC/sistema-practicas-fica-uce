@@ -67,4 +67,13 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun> {
 	jvmArgs = listOf("-Dfile.encoding=UTF-8", "-Dconsole.encoding=UTF-8")
+	val envFile = file(".env")
+	if (envFile.exists()) {
+		envFile.readLines()
+			.filter { it.isNotBlank() && !it.startsWith("#") && it.contains("=") }
+			.forEach { line ->
+				val parts = line.split("=", limit = 2)
+				environment(parts[0].trim(), parts[1].trim())
+			}
+	}
 }

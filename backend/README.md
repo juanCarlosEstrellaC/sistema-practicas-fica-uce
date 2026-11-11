@@ -71,7 +71,7 @@ Por defecto, la aplicacion busca una base de datos PostgreSQL llamada `api_pp_db
 | :--- | :--- | :--- |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/api_pp_db` | URL de conexion JDBC |
 | `SPRING_DATASOURCE_USERNAME` | `postgres` | Usuario de base de datos |
-| `SPRING_DATASOURCE_PASSWORD` | `labcom,2015` | Clave de base de datos |
+| `SPRING_DATASOURCE_PASSWORD` | `tu_contrasenia_aqui` | Clave de base de datos |
 | `JWT_SECRET` | *(Clave predeterminada)* | Llave secreta para firma de tokens JWT |
 | `JWT_EXPIRATION` | `28800000` (8 horas) | Tiempo de validez del token en milisegundos |
 | `app.almacenamiento.ruta-base` | `archivos_subidos` | Directorio local de almacenamiento de archivos |

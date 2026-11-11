@@ -4,5 +4,7 @@ build
 bin
 .vscode
 .agents
+.env
+.env.*
 archivos_subidos
 *.jar

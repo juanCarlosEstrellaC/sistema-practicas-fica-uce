@@ -227,7 +227,7 @@ INSERT INTO procesos_vinculacion (id, estudiante_id, carrera_id, horas_requerida
 
 -- Asignaciones a proyectos comunitarios
 INSERT INTO asignaciones_proyectos_comunitarios (id, proceso_vinculacion_id, proyecto_comunitario_id, periodo_id, horas_asignadas, horas_completadas, fecha_inicio, fecha_fin, estado, fase_actual, documentos_validados, url_certificado, fecha_creacion, borrado) VALUES
-(1, 1, 1, 2, 80, 0, '2025-04-07', '2025-08-30', 'EN_CURSO', 'ASIGNACION', FALSE, NULL, NOW(), FALSE),
+(1, 1, 1, 2, 80, 0, '2025-04-07', '2025-08-30', 'EN_CURSO', 'DESARROLLO', FALSE, NULL, NOW(), FALSE),
 (2, 2, 1, 2, 80, 20, '2025-04-07', '2025-08-30', 'EN_CURSO', 'DESARROLLO', FALSE, NULL, NOW(), FALSE),
 (3, 3, 2, 2, 80, 40, '2025-04-07', '2025-08-30', 'EN_CURSO', 'DESARROLLO', FALSE, NULL, NOW(), FALSE),
 (4, 5, 2, 2, 80, 30, '2025-04-07', '2025-08-30', 'EN_CURSO', 'DESARROLLO', FALSE, NULL, NOW(), FALSE),
