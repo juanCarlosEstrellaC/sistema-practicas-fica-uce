@@ -28,20 +28,23 @@ public class AuthController {
     private final ServicioRateLimitIp servicioRateLimitIp;
 
     @PostMapping("/login")
-    public ResponseEntity<RespuestaApi<RespuestaAuthDto>> login(@Valid @RequestBody LoginDto peticion) {
+    public ResponseEntity<RespuestaApi<RespuestaAuthDto>> login(
+            @Valid @RequestBody LoginDto peticion,
+            HttpServletRequest request) {
+        String ipCliente = Utilitarios.obtenerIpCliente(request);
+        if (!servicioRateLimitIp.intentarConsumirLogin(ipCliente, peticion.correo())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", "60")
+                    .body(new RespuestaApi<>(false, "Demasiados intentos de inicio de sesión para esta cuenta. Por favor espere 1 minuto.", null));
+        }
         RespuestaAuthDto respuestaAuth = authService.login(peticion);
+        servicioRateLimitIp.reiniciarLogin(ipCliente, peticion.correo());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Inicio de sesión exitoso", respuestaAuth));
     }
 
     @PostMapping("/olvido-contrasenia")
     public ResponseEntity<RespuestaApi<Void>> olvidoContrasenia(
-            @Valid @RequestBody OlvidoContraseniaDto peticion,
-            HttpServletRequest request) {
-        String ipCliente = Utilitarios.obtenerIpCliente(request);
-        if (!servicioRateLimitIp.intentarConsumirRecuperacionIp(ipCliente)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new RespuestaApi<>(false, "Demasiadas solicitudes de recuperación desde esta dirección IP. Por favor intente más tarde.", null));
-        }
+            @Valid @RequestBody OlvidoContraseniaDto peticion) {
         if (!servicioRateLimitIp.intentarConsumirRecuperacionCorreo(peticion.correo())) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(new RespuestaApi<>(false, "Demasiadas solicitudes de recuperación para este correo. Por favor intente más tarde.", null));

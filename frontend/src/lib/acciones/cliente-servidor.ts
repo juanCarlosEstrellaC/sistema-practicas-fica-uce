@@ -3,10 +3,6 @@ import { UsuarioSesion } from '@/lib/tipos/general';
 
 export const URL_BACKEND = process.env.BACKEND_URL || 'http://localhost:8080/api/v1';
 
-/**
- * Obtiene las cabeceras HTTP necesarias para peticiones hacia el backend desde el servidor,
- * leyendo la cookie 'token' inyectada en la sesion.
- */
 export async function obtenerCabecerasAutenticacion(): Promise<Record<string, string>> {
   const almacenCookies = await cookies();
   const token = almacenCookies.get('token')?.value;
@@ -21,10 +17,7 @@ export async function obtenerCabecerasAutenticacion(): Promise<Record<string, st
 
   return cabeceras;
 }
-
-/**
- * Obtiene cabeceras de autorización sin Content-Type para peticiones multipart/form-data.
- */
+ 
 export async function obtenerCabecerasSubidaArchivo(): Promise<Record<string, string>> {
   const almacenCookies = await cookies();
   const token = almacenCookies.get('token')?.value;
@@ -37,12 +30,6 @@ export async function obtenerCabecerasSubidaArchivo(): Promise<Record<string, st
   return cabeceras;
 }
 
-/**
- * Lee la cookie 'usuario' desde el servidor y valida su correspondencia con el token JWT,
- * retornando el objeto UsuarioSesion autenticado.
- * 
- * Si las cookies no existen, el token expiró o la identidad no coincide, retorna null.
- */
 export async function obtenerUsuarioServidor(): Promise<UsuarioSesion | null> {
   const almacenCookies = await cookies();
   const token = almacenCookies.get('token')?.value;

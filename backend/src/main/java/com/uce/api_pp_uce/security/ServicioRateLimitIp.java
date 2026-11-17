@@ -10,24 +10,29 @@ public class ServicioRateLimitIp {
     private static final int CAPACIDAD_DEFAULT_LOGIN = 5;
     private static final long INTERVALO_LOGIN_MS = 60_000L; // 1 minuto
 
-    // Para recuperacion de contrasenia: maximo 5 por IP y 3 por correo cada 15 minutos
+    // Para recuperacion de contrasenia: maximo 3 por correo cada 15 minutos
     private static final long INTERVALO_RECUPERACION_MS = 15 * 60_000L; // 15 minutos
-    private static final int CAPACIDAD_RECUPERACION_IP = 5;
     private static final int CAPACIDAD_RECUPERACION_CORREO = 3;
 
     private final ConcurrentHashMap<String, CubetaTokens> cubetas = new ConcurrentHashMap<>();
 
-    public boolean intentarConsumir(String ip) {
-        return intentarConsumir("login:ip:" + ip, CAPACIDAD_DEFAULT_LOGIN, INTERVALO_LOGIN_MS);
+    public boolean intentarConsumirLogin(String ip, String correo) {
+        return intentarConsumir(construirClaveLogin(ip, correo), CAPACIDAD_DEFAULT_LOGIN, INTERVALO_LOGIN_MS);
     }
 
-    public boolean intentarConsumirRecuperacionIp(String ip) {
-        return intentarConsumir("recuperacion:ip:" + ip, CAPACIDAD_RECUPERACION_IP, INTERVALO_RECUPERACION_MS);
+    public void reiniciarLogin(String ip, String correo) {
+        cubetas.remove(construirClaveLogin(ip, correo));
     }
 
     public boolean intentarConsumirRecuperacionCorreo(String correo) {
-        String correoLimpio = correo != null ? correo.trim().toLowerCase() : "desconocido";
+        String correoLimpio = correo != null && !correo.isBlank() ? correo.trim().toLowerCase() : "desconocido";
         return intentarConsumir("recuperacion:correo:" + correoLimpio, CAPACIDAD_RECUPERACION_CORREO, INTERVALO_RECUPERACION_MS);
+    }
+
+    private String construirClaveLogin(String ip, String correo) {
+        String ipLimpia = ip != null && !ip.isBlank() ? ip.trim() : "desconocida";
+        String correoLimpio = correo != null && !correo.isBlank() ? correo.trim().toLowerCase() : "desconocido";
+        return "login:" + ipLimpia + ":" + correoLimpio;
     }
 
     public boolean intentarConsumir(String clave, int capacidad, long intervaloRecargaMs) {
