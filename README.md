@@ -72,7 +72,7 @@ Si usted cuenta con [Docker Desktop](https://www.docker.com/) instalado y en eje
    ```bash
    cp .env.example .env
    ```
-   *(Asegúrese de definir contraseñas y claves seguras para `DB_PASSWORD` y `JWT_SECRET`).*
+   *(Defina contraseñas y claves seguras para `DB_PASSWORD` y `JWT_SECRET`. Para pruebas locales con Docker, ajuste `APP_FRONTEND_URL=http://localhost:3000` y `APP_CORS_ALLOWED_ORIGINS=http://localhost:3000`).*
 
 2. **Crear los volúmenes externos persistentes (una sola vez):**
    ```bash
@@ -85,11 +85,10 @@ Si usted cuenta con [Docker Desktop](https://www.docker.com/) instalado y en eje
    docker compose up --build
    ```
 
-Al finalizar el proceso de inicialización, los servicios estarán disponibles en las siguientes direcciones:
+Al finalizar el proceso de inicialización, los servicios expuestos al equipo anfitrión estarán disponibles en las siguientes direcciones:
 * **Frontend Web:** `http://localhost:3000`
-* **Backend API REST:** `http://localhost:8080/api/v1`
 * **Bandeja de Correos (Mailpit):** `http://localhost:8025` (buzón web para pruebas de emails, activación de cuentas y recuperación)
-* **Base de Datos PostgreSQL:** Puerto `5432` (Base de datos: `db_practicas_fica_uce`)
+* **Servicios internos (red Docker):** El **Backend API REST** (`backend:8080/api/v1`) y **PostgreSQL** (`postgres:5432`, base de datos `db_practicas_fica_uce`) permanecen aislados dentro de la red de contenedores; el frontend se comunica con la API mediante su proxy interno (`/api/proxy`).
 * **Persistencia de Archivos:** Las evidencias y documentos cargados se almacenan de forma protegida en el volumen externo `backend_archivos` (inmune a `docker compose down -v`).
 
 Para detener la ejecución de los contenedores, presione `Ctrl + C` o ejecute:
@@ -108,7 +107,7 @@ Cree una base de datos en su servidor local de PostgreSQL:
 ```sql
 CREATE DATABASE db_practicas_fica_uce;
 ```
-Asegúrese de que las credenciales de conexión coincidan con su configuración local en `backend/src/main/resources/application.properties`.
+Por defecto, el backend se conecta a `jdbc:postgresql://localhost:5432/db_practicas_fica_uce` con el usuario `postgres` (definido en `backend/src/main/resources/application.properties`) y requiere obligatoriamente la variable de entorno `SPRING_DATASOURCE_PASSWORD`.
 
 ---
 
@@ -118,7 +117,16 @@ Asegúrese de que las credenciales de conexión coincidan con su configuración 
    ```bash
    cd backend
    ```
-2. Inicie el servidor mediante Gradle Wrapper:
+2. Exporte la contraseña de PostgreSQL en su sesión actual (Spring Boot no carga archivos `.env` automáticamente; también puede usar `backend/.env.example` como referencia para su IDE):
+   * **En Windows (PowerShell):**
+     ```powershell
+     $env:SPRING_DATASOURCE_PASSWORD="tu_contrasenia_postgres"
+     ```
+   * **En Linux / macOS:**
+     ```bash
+     export SPRING_DATASOURCE_PASSWORD="tu_contrasenia_postgres"
+     ```
+3. Inicie el servidor mediante Gradle Wrapper:
    * **En Windows (PowerShell / CMD):**
      ```powershell
      .\gradlew.bat bootRun
@@ -127,7 +135,7 @@ Asegúrese de que las credenciales de conexión coincidan con su configuración 
      ```bash
      ./gradlew bootRun
      ```
-3. La API REST quedará accesible en: `http://localhost:8080/api/v1`.
+4. La API REST quedará accesible en: `http://localhost:8080/api/v1`.
 
 ---
 
@@ -169,11 +177,11 @@ Para ejecutar las pruebas del frontend, sitúese en `frontend/`:
   ```
 * **Pruebas End-to-End (Playwright):**
   ```bash
-  npx playwright test
+  npm run test:e2e
   ```
 
 ---
 
 ## Información Institucional
-* **Proyecto de Titulación:** Carrera de Computación / Sistemas de Información.
+* **Proyecto de Titulación:** Carrera de Computación.
 * **Entidad Académica:** Facultad de Ingeniería y Ciencias Aplicadas (FICA), Universidad Central del Ecuador (UCE).

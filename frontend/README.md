@@ -36,18 +36,32 @@ La aplicación implementa los estándares modernos de desarrollo en Next.js:
 ```text
 src/
 ├── app/                      # Rutas del App Router (páginas, layouts y API routes)
-│   ├── api/proxy/            # Proxy inverso para binarios y eventos SSE
-│   ├── dashboard/            # Paneles de gestión por rol institucional
-│   └── (auth)/               # Vistas de autenticación y activación de cuenta
+│   ├── activar-cuenta/       # Activación inicial de cuenta de usuario
+│   ├── api/                  # Route Handlers de Next.js
+│   │   ├── auth/             # Endpoints de sesión (login y logout con cookies httpOnly)
+│   │   └── proxy/            # Proxy inverso para binarios y eventos SSE
+│   ├── dashboard/            # Paneles (administracion, configuracion, practicas, vinculacion)
+│   └── restaurar-contrasenia/ # Flujo de recuperación de contraseña
 ├── components/               # Componentes React (shadcn/ui y componentes de dominio)
+│   ├── autenticacion/        # Formularios de inicio de sesión, activación y recuperación
 │   ├── comunes/              # Componentes reutilizables (tablas, modales, firmas)
+│   ├── configuracion/        # Vistas de perfil y preferencias de usuario
+│   ├── dashboards/           # Tableros administrativos y métricas por rol
+│   ├── esqueletos/           # Skeletons de carga (loading.tsx)
+│   ├── navegacion/           # Barra lateral, encabezado y notificaciones en vivo
 │   ├── practicas/            # Componentes específicos de Prácticas Preprofesionales
+│   ├── ui/                   # Componentes base de shadcn/ui (Radix UI)
 │   └── vinculacion/          # Componentes específicos de Vinculación con la Sociedad
+├── hooks/                    # Custom hooks de React
 ├── lib/
 │   ├── acciones/             # Server Actions por módulo funcional
+│   ├── contextos/            # Contextos de React para estado compartido de UI
 │   ├── esquemas/             # Esquemas de validación Zod
+│   ├── seguridad/            # Helpers de sesión y autorización
+│   ├── servicios/            # Clientes y configuración de servicios
 │   ├── tipos/                # Definiciones TypeScript y DTOs
 │   └── utilidades/           # Funciones auxiliares de formateo y validación
+└── styles/                   # Estilos globales y configuración de Tailwind CSS
 e2e/                          # Suites completas de pruebas automatizadas con Playwright
 ```
 
@@ -114,7 +128,7 @@ npm test
 ### Pruebas de Interfaz End-to-End (Playwright)
 Para ejecutar los flujos de prueba de extremo a extremo:
 ```bash
-npx playwright test
+npm run test:e2e
 ```
-*(Para visualizar el reporte interactivo de Playwright, ejecute: `npx playwright show-report`).*
+*(Para abrir la interfaz interactiva de Playwright, ejecute: `npm run test:e2e:ui`, o para ver el reporte: `npx playwright show-report`).*
 

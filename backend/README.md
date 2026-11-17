@@ -27,6 +27,7 @@ El codigo fuente sigue una arquitectura en capas limpia y desacoplada:
 src/
 ├── main/
 │   ├── java/com/uce/api_pp_uce/
+│   │   ├── common/            # Clases y utilidades transversales (RespuestaApi, RespuestaArchivoUtil, Utilitarios)
 │   │   ├── config/            # Configuraciones globales (CORS, MVC, Storage, Jackson)
 │   │   ├── controllers/       # Endpoints REST (Auth, Usuarios, Carreras, Periodos)
 │   │   │   ├── pp/            # Controladores de Practicas Preprofesionales
@@ -44,7 +45,7 @@ src/
 │   │   └── services/          # Logica de negocio y servicios
 │   └── resources/
 │       ├── application.properties # Parametrizacion del entorno
-│       ├── templates/             # Plantillas HTML/Thymeleaf para PDFs
+│       ├── templates/             # Plantillas HTML/Thymeleaf para PDFs y correos (email/)
 │       └── db/                    # Unica fuente de verdad de base de datos
 │           ├── schema.sql         # Esquema DDL relacional sincronizado con JPA
 │           ├── dummy_inicial.sql  # Semilla 1: Arranque desde cero (Admin Subdecano + Carreras)
@@ -65,14 +66,14 @@ src/
 
 ## Configuracion de la Base de Datos
 
-Por defecto, la aplicacion busca una base de datos PostgreSQL llamada `api_pp_db`. Puedes sobreescribir la conexion mediante variables de entorno o editando `src/main/resources/application.properties`:
+Por defecto, la aplicacion busca una base de datos PostgreSQL llamada `db_practicas_fica_uce`. Puedes sobreescribir la configuracion mediante variables de entorno (Spring Boot no lee archivos `.env` automaticamente; exportalas en tu terminal o IDE tomando como guia `backend/.env.example`):
 
 | Propiedad / Variable de Entorno | Valor por Defecto | Descripcion |
 | :--- | :--- | :--- |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/api_pp_db` | URL de conexion JDBC |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/db_practicas_fica_uce` | URL de conexion JDBC |
 | `SPRING_DATASOURCE_USERNAME` | `postgres` | Usuario de base de datos |
-| `SPRING_DATASOURCE_PASSWORD` | `tu_contrasenia_aqui` | Clave de base de datos |
-| `JWT_SECRET` | *(Clave predeterminada)* | Llave secreta para firma de tokens JWT |
+| `SPRING_DATASOURCE_PASSWORD` | *(Obligatoria, sin valor por defecto)* | Clave de base de datos |
+| `JWT_SECRET` | *(Clave local en dev; obligatoria en prod)* | Llave secreta para firma de tokens JWT |
 | `JWT_EXPIRATION` | `28800000` (8 horas) | Tiempo de validez del token en milisegundos |
 | `app.almacenamiento.ruta-base` | `archivos_subidos` | Directorio local de almacenamiento de archivos |
 
@@ -80,16 +81,16 @@ Por defecto, la aplicacion busca una base de datos PostgreSQL llamada `api_pp_db
 
 ## Semillas de Datos (Dummies)
 
-En `src/main/resources/application.properties` se pueden seleccionar los datos a cargar modificando la propiedad `spring.sql.init.data-locations`:
+Por defecto, `spring.sql.init.mode` esta configurado en `never` en `application.properties` y `application-dev.properties` (en Docker Compose, PostgreSQL ejecuta `schema.sql` y `dummy_inicial.sql` automaticamente al crear el volumen). Para cargar semillas al arrancar localmente sin Docker, cambia temporalmente `spring.sql.init.mode=always` y selecciona el script en `spring.sql.init.data-locations` (o ejecutalos directamente en PostgreSQL):
 
 * **Modo Minimo (`dummy_inicial.sql`):**
-  Carga los usuarios base por cada rol (`SUBDECANO`, `DIRECTOR_CARRERA`, `COORDINADOR_PRACTICAS`, `TUTOR_ACADEMICO`, `ESTUDIANTE`), un periodo academico activo y las 5 carreras base de la facultad:
+  Carga los usuarios ficticios base de prueba por cada rol (`SUBDECANO`, `DIRECTOR_CARRERA`, `COORDINADOR_PRACTICAS`, `TUTOR_ACADEMICO`, `ESTUDIANTE`), un periodo academico activo y las 5 carreras base de la facultad *(exclusivo para entorno local de desarrollo)*:
   * **Subdecano:** `aperez@uce.edu.ec`
   * **Director de Carrera:** `zruiz@uce.edu.ec`
   * **Coordinador de Practicas:** `gmoncayo@uce.edu.ec`
   * **Tutor Academico:** `jsalvador@uce.edu.ec`
   * **Estudiante:** `jcestrella@uce.edu.ec`
-  * **Contrasenia general:** `123456`
+  * **Contrasenia de prueba:** `123456`
 
 * **Modo Completo (`dummy_completo.sql`):**
   Carga 41 usuarios (Estudiantes, Tutores, Directores de Carrera, Coordinadores de Practicas y Subdecano), convenios activos, proyectos comunitarios y procesos de prueba.
