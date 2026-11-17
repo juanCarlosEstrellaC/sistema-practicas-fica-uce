@@ -5,8 +5,11 @@ import com.uce.api_pp_uce.dtos.auth.OlvidoContraseniaDto;
 import com.uce.api_pp_uce.dtos.auth.RestaurarContraseniaDto;
 import com.uce.api_pp_uce.entities.TokenRecuperacionContrasenia;
 import com.uce.api_pp_uce.entities.Usuario;
+import com.uce.api_pp_uce.enums.EstadoUsuario;
+import com.uce.api_pp_uce.enums.RolUsuario;
 import com.uce.api_pp_uce.repositories.TokenRecuperacionContraseniaRepository;
 import com.uce.api_pp_uce.repositories.UsuarioRepository;
+import com.uce.api_pp_uce.security.DetallesUsuarioImpl;
 import com.uce.api_pp_uce.services.IntentosLoginService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +22,8 @@ import org.springframework.http.MediaType;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -36,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -213,5 +219,210 @@ class ControladorAutenticacionTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.exito").value(true))
                 .andExpect(jsonPath("$.mensaje").value("Si el correo coincide con una cuenta activa, recibirás un mensaje con las instrucciones."));
+    }
+
+    @Test
+    @DisplayName("Deberia permitir login de usuario Z aunque usuarios X e Y fallen 5 veces desde la misma IP")
+    void testLoginUsuarioZNoBloqueadoPorFallosDeXeY() throws Exception {
+        String ipCompartida = "198.51.100.50";
+        Usuario usuarioZ = new Usuario();
+        usuarioZ.setId(99L);
+        usuarioZ.setCorreo("usuarioz@uce.edu.ec");
+        usuarioZ.setNombres("Usuario Z");
+        usuarioZ.setRol(RolUsuario.DIRECTOR_CARRERA);
+        usuarioZ.setEstado(EstadoUsuario.ACTIVO);
+        usuarioZ.setVersionToken(1L);
+
+        DetallesUsuarioImpl detallesZ = new DetallesUsuarioImpl(usuarioZ);
+        Authentication autenticacionZ = new UsernamePasswordAuthenticationToken(detallesZ, null, detallesZ.getAuthorities());
+
+        when(usuarioRepository.findByCorreo("usuariox@uce.edu.ec")).thenReturn(Optional.of(new Usuario()));
+        when(usuarioRepository.findByCorreo("usuarioy@uce.edu.ec")).thenReturn(Optional.of(new Usuario()));
+        when(usuarioRepository.findByCorreo("usuarioz@uce.edu.ec")).thenReturn(Optional.of(usuarioZ));
+        when(intentosLoginService.estaBloqueado(anyString())).thenReturn(false);
+        when(intentosLoginService.getIntentosRestantes(anyString())).thenReturn(2);
+        when(gestorAutenticacion.authenticate(any()))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenThrow(new BadCredentialsException("Bad credentials"))
+                .thenReturn(autenticacionZ);
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/auth/login")
+                    .header("CF-Connecting-IP", ipCompartida)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new LoginDto("usuariox@uce.edu.ec", "mala"))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/auth/login")
+                    .header("CF-Connecting-IP", ipCompartida)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new LoginDto("usuarioy@uce.edu.ec", "mala"))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/auth/login")
+                .header("CF-Connecting-IP", ipCompartida)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new LoginDto("usuarioz@uce.edu.ec", "claveCorrecta"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exito").value(true));
+    }
+
+    @Test
+    @DisplayName("Deberia responder 429 en login al superar 30 intentos desde la misma IP")
+    void testLoginRateLimitPorIp() throws Exception {
+        String ipAtacante = "198.51.100.60";
+        when(usuarioRepository.findByCorreo(anyString())).thenReturn(Optional.empty());
+
+        for (int i = 0; i < 30; i++) {
+            mockMvc.perform(post("/auth/login")
+                    .header("CF-Connecting-IP", ipAtacante)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new LoginDto("usuario" + i + "@uce.edu.ec", "clave"))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/auth/login")
+                .header("CF-Connecting-IP", ipAtacante)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new LoginDto("usuario31@uce.edu.ec", "clave"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "60"))
+                .andExpect(jsonPath("$.exito").value(false));
+    }
+
+    @Test
+    @DisplayName("Deberia responder 429 en olvido-contrasenia por correo y por IP")
+    void testOlvidoContraseniaRateLimitPorCorreoEIp() throws Exception {
+        when(usuarioRepository.findByCorreo(anyString())).thenReturn(Optional.empty());
+
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/auth/olvido-contrasenia")
+                    .header("CF-Connecting-IP", "198.51.100.70")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("saturado@uce.edu.ec"))))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(post("/auth/olvido-contrasenia")
+                .header("CF-Connecting-IP", "198.51.100.70")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("saturado@uce.edu.ec"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "300"))
+                .andExpect(jsonPath("$.exito").value(false));
+
+        String ipAtacante = "198.51.100.80";
+        for (int i = 0; i < 15; i++) {
+            mockMvc.perform(post("/auth/olvido-contrasenia")
+                    .header("CF-Connecting-IP", ipAtacante)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("correo" + i + "@uce.edu.ec"))))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(post("/auth/olvido-contrasenia")
+                .header("CF-Connecting-IP", ipAtacante)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("correo16@uce.edu.ec"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "60"))
+                .andExpect(jsonPath("$.exito").value(false));
+    }
+
+    @Test
+    @DisplayName("Vector adversarial DoS Remoto: IP bloqueada en olvido-contrasenia no agota fichas de correo ajeno")
+    void testOlvidoContraseniaIpBloqueadaNoBloqueaVictimaEnOtraIp() throws Exception {
+        String ipAtacante = "198.51.100.110";
+        String ipVictima = "203.0.113.50";
+        String correoVictima = "victima.recuperacion@uce.edu.ec";
+        when(usuarioRepository.findByCorreo(anyString())).thenReturn(Optional.empty());
+
+        for (int i = 0; i < 15; i++) {
+            mockMvc.perform(post("/auth/olvido-contrasenia")
+                    .header("CF-Connecting-IP", ipAtacante)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("sondeo" + i + "@uce.edu.ec"))))
+                    .andExpect(status().isOk());
+        }
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/auth/olvido-contrasenia")
+                    .header("CF-Connecting-IP", ipAtacante)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto(correoVictima))))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(header().string("Retry-After", "60"));
+        }
+
+        mockMvc.perform(post("/auth/olvido-contrasenia")
+                .header("CF-Connecting-IP", ipVictima)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto(correoVictima))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exito").value(true));
+    }
+
+    @Test
+    @DisplayName("Vector adversarial Cross-User Lab DoS: rechazos por correo no consumen cuota de IP compartida")
+    void testOlvidoContraseniaUsuarioImpacienteNoBloqueaLaboratorio() throws Exception {
+        String ipLaboratorio = "198.51.100.90";
+        when(usuarioRepository.findByCorreo(anyString())).thenReturn(Optional.empty());
+
+        // Usuario 1 hace 10 solicitudes repetidas para su mismo correo: 1..3 pasan (200), 4..10 rechazan por correo (429)
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/auth/olvido-contrasenia")
+                    .header("CF-Connecting-IP", ipLaboratorio)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("impaciente@uce.edu.ec"))))
+                    .andExpect(status().isOk());
+        }
+
+        for (int i = 0; i < 7; i++) {
+            mockMvc.perform(post("/auth/olvido-contrasenia")
+                    .header("CF-Connecting-IP", ipLaboratorio)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("impaciente@uce.edu.ec"))))
+                    .andExpect(status().isTooManyRequests());
+        }
+
+        // Usuario 2 en el mismo laboratorio solicita para su correo y debe pasar (quedan tokens de IP)
+        mockMvc.perform(post("/auth/olvido-contrasenia")
+                .header("CF-Connecting-IP", ipLaboratorio)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new OlvidoContraseniaDto("companiero@uce.edu.ec"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exito").value(true));
+    }
+
+    @Test
+    @DisplayName("Vector adversarial Cabecera Malformada: X-Forwarded-For con segmentos vacios resuelve IP real")
+    void testCabeceraXForwardedForMalformadaResuelveIpReal() throws Exception {
+        when(usuarioRepository.findByCorreo(anyString())).thenReturn(Optional.empty());
+
+        for (int i = 0; i < 30; i++) {
+            mockMvc.perform(post("/auth/login")
+                    .header("X-Forwarded-For", " , , 198.51.100.95 , 172.70.0.1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(new LoginDto("prueba" + i + "@uce.edu.ec", "clave"))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // El intento 31 con la IP limpia coincide con la misma cubeta y debe bloquear con 429
+        mockMvc.perform(post("/auth/login")
+                .header("X-Forwarded-For", "198.51.100.95")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new LoginDto("prueba31@uce.edu.ec", "clave"))))
+                .andExpect(status().isTooManyRequests());
     }
 }

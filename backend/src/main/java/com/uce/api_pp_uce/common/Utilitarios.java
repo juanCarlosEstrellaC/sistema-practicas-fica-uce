@@ -24,12 +24,18 @@ public final class Utilitarios {
         if (ip == null || ip.isBlank()) {
             String forwarded = request.getHeader("X-Forwarded-For");
             if (forwarded != null && !forwarded.isBlank()) {
-                ip = forwarded.split(",")[0].trim();
+                for (String segmento : forwarded.split(",")) {
+                    String limpio = segmento.trim();
+                    if (!limpio.isEmpty()) {
+                        ip = limpio;
+                        break;
+                    }
+                }
             }
         }
         if (ip == null || ip.isBlank()) {
             ip = request.getRemoteAddr();
         }
-        return ip != null ? ip : "desconocida";
+        return (ip != null && !ip.isBlank()) ? ip.trim() : "desconocida";
     }
 }

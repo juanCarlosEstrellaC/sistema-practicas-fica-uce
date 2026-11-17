@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { headers } from 'next/headers';
 import {
   activarCuentaAccion,
   restaurarContraseniaAccion,
   solicitarOlvidoContraseniaAccion,
 } from '../autenticacion.acciones';
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(),
+  headers: vi.fn(),
+}));
 
 describe('Server Actions de Autenticación (NIST SP 800-63B)', () => {
   const fetchOriginal = global.fetch;
@@ -126,7 +132,14 @@ describe('Server Actions de Autenticación (NIST SP 800-63B)', () => {
   });
 
   describe('solicitarOlvidoContraseniaAccion', () => {
-    it('debe solicitar enlace de recuperación', async () => {
+    it('debe solicitar enlace de recuperación propagando la IP del cliente', async () => {
+      vi.mocked(headers).mockResolvedValue(
+        new Headers({
+          'cf-connecting-ip': '203.0.113.88',
+          'x-forwarded-for': '203.0.113.88, 172.70.0.1',
+        })
+      );
+
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -139,6 +152,69 @@ describe('Server Actions de Autenticación (NIST SP 800-63B)', () => {
 
       expect(resultado.exito).toBe(true);
       expect(resultado.mensaje).toBe('Se ha enviado un correo con las instrucciones.');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/olvido-contrasenia'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'CF-Connecting-IP': '203.0.113.88',
+            'X-Forwarded-For': '203.0.113.88, 172.70.0.1',
+          },
+          body: JSON.stringify({ correo: 'estudiante@uce.edu.ec' }),
+        })
+      );
+    });
+
+    it('debe continuar sin fallar si headers() lanza error fuera de contexto HTTP', async () => {
+      vi.mocked(headers).mockRejectedValue(new Error('Fuera de contexto HTTP'));
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Se ha enviado un correo con las instrucciones.',
+        }),
+      });
+
+      const resultado = await solicitarOlvidoContraseniaAccion('estudiante@uce.edu.ec');
+
+      expect(resultado.exito).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/olvido-contrasenia'),
+        expect.objectContaining({
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    });
+
+    it('debe usar x-real-ip como respaldo de X-Forwarded-For cuando no viene x-forwarded-for', async () => {
+      vi.mocked(headers).mockResolvedValue(
+        new Headers({
+          'x-real-ip': '198.51.100.44',
+        })
+      );
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Se ha enviado un correo con las instrucciones.',
+        }),
+      });
+
+      const resultado = await solicitarOlvidoContraseniaAccion('estudiante@uce.edu.ec');
+
+      expect(resultado.exito).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/olvido-contrasenia'),
+        expect.objectContaining({
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Forwarded-For': '198.51.100.44',
+          },
+        })
+      );
     });
   });
 });

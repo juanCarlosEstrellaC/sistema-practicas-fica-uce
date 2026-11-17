@@ -7,6 +7,7 @@ import com.uce.api_pp_uce.dtos.auth.OlvidoContraseniaDto;
 import com.uce.api_pp_uce.dtos.auth.RespuestaAuthDto;
 import com.uce.api_pp_uce.dtos.auth.RestaurarContraseniaDto;
 import com.uce.api_pp_uce.security.ServicioRateLimitIp;
+import com.uce.api_pp_uce.security.ServicioRateLimitIp.ResultadoRecuperacion;
 import com.uce.api_pp_uce.services.auth.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,21 +33,29 @@ public class AuthController {
             @Valid @RequestBody LoginDto peticion,
             HttpServletRequest request) {
         String ipCliente = Utilitarios.obtenerIpCliente(request);
-        if (!servicioRateLimitIp.intentarConsumirLogin(ipCliente, peticion.correo())) {
+        if (!servicioRateLimitIp.intentarConsumirLoginIp(ipCliente)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .header("Retry-After", "60")
-                    .body(new RespuestaApi<>(false, "Demasiados intentos de inicio de sesión para esta cuenta. Por favor espere 1 minuto.", null));
+                    .body(new RespuestaApi<>(false, "Demasiados intentos de inicio de sesión desde esta dirección IP. Por favor espere 1 minuto.", null));
         }
         RespuestaAuthDto respuestaAuth = authService.login(peticion);
-        servicioRateLimitIp.reiniciarLogin(ipCliente, peticion.correo());
         return ResponseEntity.ok(new RespuestaApi<>(true, "Inicio de sesión exitoso", respuestaAuth));
     }
 
     @PostMapping("/olvido-contrasenia")
     public ResponseEntity<RespuestaApi<Void>> olvidoContrasenia(
-            @Valid @RequestBody OlvidoContraseniaDto peticion) {
-        if (!servicioRateLimitIp.intentarConsumirRecuperacionCorreo(peticion.correo())) {
+            @Valid @RequestBody OlvidoContraseniaDto peticion,
+            HttpServletRequest request) {
+        String ipCliente = Utilitarios.obtenerIpCliente(request);
+        ResultadoRecuperacion resultado = servicioRateLimitIp.intentarConsumirRecuperacion(ipCliente, peticion.correo());
+        if (resultado == ResultadoRecuperacion.LIMITE_IP) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", "60")
+                    .body(new RespuestaApi<>(false, "Demasiadas solicitudes de recuperación desde esta dirección IP. Por favor intente más tarde.", null));
+        }
+        if (resultado == ResultadoRecuperacion.LIMITE_CORREO) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", "300")
                     .body(new RespuestaApi<>(false, "Demasiadas solicitudes de recuperación para este correo. Por favor intente más tarde.", null));
         }
 

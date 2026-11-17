@@ -1,15 +1,37 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { URL_BACKEND } from './cliente-servidor';
 
 export async function solicitarOlvidoContraseniaAccion(
   correo: string
 ): Promise<{ exito: boolean; mensaje: string }> {
   try {
+    const cabecerasBackend: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      const cabecerasEntrantes = await headers();
+      const ipCloudflare = cabecerasEntrantes.get('cf-connecting-ip');
+      const ipReenviada = cabecerasEntrantes.get('x-forwarded-for');
+      const ipReal = cabecerasEntrantes.get('x-real-ip');
+
+      if (ipCloudflare) {
+        cabecerasBackend['CF-Connecting-IP'] = ipCloudflare;
+      }
+      if (ipReenviada) {
+        cabecerasBackend['X-Forwarded-For'] = ipReenviada;
+      } else if (ipReal) {
+        cabecerasBackend['X-Forwarded-For'] = ipReal;
+      }
+    } catch {
+      // Ignorar si se ejecuta fuera de contexto HTTP (ej. tests unitarios)
+    }
+
     const respuesta = await fetch(`${URL_BACKEND}/auth/olvido-contrasenia`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecerasBackend,
       body: JSON.stringify({ correo }),
     });
 
