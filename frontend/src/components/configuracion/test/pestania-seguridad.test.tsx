@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { PestaniaSeguridad } from '../pestania-seguridad';
+import { ContextoAutenticacion } from '@/lib/contextos/contexto-autenticacion';
 
 const mockValidarMiContraseniaAccion = vi.fn();
 const mockCambiarMiContraseniaAccion = vi.fn();
@@ -166,5 +167,80 @@ describe('PestaniaSeguridad (Componente Modular de Seguridad y NIST)', () => {
     fireEvent.change(inputConfirmar, { target: { value: 'Segura#2026!Abc' } });
     expect(screen.queryByText(/las contraseñas no coinciden/i)).not.toBeInTheDocument();
     expect(screen.getByText(/las contraseñas coinciden/i)).toBeInTheDocument();
+  });
+
+  it('debe impedir guardar y mostrar aviso si la nueva contraseña es igual a la actual', async () => {
+    mockValidarMiContraseniaAccion.mockResolvedValueOnce({
+      exito: true,
+      esValida: true,
+    });
+
+    render(<PestaniaSeguridad />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+    });
+
+    fireEvent.change(screen.getByLabelText(/Contraseña Actual/i), { target: { value: 'Segura#2026!Abc' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^verificar$/i }));
+    });
+
+    fireEvent.change(screen.getByLabelText(/^Nueva Contraseña/i), { target: { value: 'Segura#2026!Abc' } });
+    fireEvent.change(screen.getByLabelText(/Confirmar Nueva Contraseña/i), { target: { value: 'Segura#2026!Abc' } });
+
+    expect(screen.getByText(/la nueva contraseña debe ser diferente a la contraseña actual/i)).toBeInTheDocument();
+    const botonesCambiar = screen.getAllByRole('button', { name: /cambiar contraseña/i });
+    const botonConfirmarCambio = botonesCambiar[botonesCambiar.length - 1];
+    expect(botonConfirmarCambio).toBeDisabled();
+  });
+
+  it('debe invocar cerrarSesion tras cambiar la contraseña exitosamente dentro del contexto de autenticacion', async () => {
+    const mockCerrarSesion = vi.fn().mockResolvedValue(undefined);
+    mockValidarMiContraseniaAccion.mockResolvedValueOnce({
+      exito: true,
+      esValida: true,
+    });
+    mockCambiarMiContraseniaAccion.mockResolvedValueOnce({
+      exito: true,
+      mensaje: 'Contraseña actualizada correctamente',
+    });
+
+    render(
+      <ContextoAutenticacion.Provider
+        value={{
+          usuario: null,
+          cargando: false,
+          iniciarSesion: vi.fn(),
+          cerrarSesion: mockCerrarSesion,
+          cambiarRol: vi.fn(),
+          actualizarUsuario: vi.fn(),
+        }}
+      >
+        <PestaniaSeguridad />
+      </ContextoAutenticacion.Provider>
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+    });
+
+    fireEvent.change(screen.getByLabelText(/Contraseña Actual/i), { target: { value: 'PassActual123*' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^verificar$/i }));
+    });
+
+    fireEvent.change(screen.getByLabelText(/^Nueva Contraseña/i), { target: { value: 'Segura#2026!Abc' } });
+    fireEvent.change(screen.getByLabelText(/Confirmar Nueva Contraseña/i), { target: { value: 'Segura#2026!Abc' } });
+
+    const botonesCambiar = screen.getAllByRole('button', { name: /cambiar contraseña/i });
+    const botonConfirmarCambio = botonesCambiar[botonesCambiar.length - 1];
+
+    await act(async () => {
+      fireEvent.click(botonConfirmarCambio);
+    });
+
+    expect(mockCambiarMiContraseniaAccion).toHaveBeenCalledWith('PassActual123*', 'Segura#2026!Abc');
+    expect(mockCerrarSesion).toHaveBeenCalledTimes(1);
   });
 });

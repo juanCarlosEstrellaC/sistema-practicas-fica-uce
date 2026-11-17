@@ -316,6 +316,14 @@ export async function cambiarMiContraseniaAccion(
       };
     }
 
+    try {
+      const almacenCookies = await cookies();
+      almacenCookies.delete('token');
+      almacenCookies.delete('usuario');
+    } catch {
+      // Ignorar fuera de contexto HTTP
+    }
+
     return {
       exito: true,
       mensaje: 'Contraseña actualizada correctamente',

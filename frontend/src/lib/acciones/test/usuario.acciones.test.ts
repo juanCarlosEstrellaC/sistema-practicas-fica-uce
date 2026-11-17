@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { reenviarActivacionUsuarioAccion, actualizarMiPerfilAccion, transferirSubdecanatoAccion } from '../usuario.acciones';
+import {
+  reenviarActivacionUsuarioAccion,
+  actualizarMiPerfilAccion,
+  transferirSubdecanatoAccion,
+  cambiarMiContraseniaAccion,
+} from '../usuario.acciones';
+
+const mockDeleteCookie = vi.fn();
 
 vi.mock('../cliente-servidor', () => ({
   URL_BACKEND: 'http://localhost:8080/api/v1',
@@ -14,7 +21,7 @@ vi.mock('next/cache', () => ({
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({
-    delete: vi.fn(),
+    delete: (...args: unknown[]) => mockDeleteCookie(...args),
   })),
 }));
 
@@ -158,5 +165,43 @@ describe('usuario.acciones - transferirSubdecanatoAccion', () => {
         method: 'POST',
       })
     );
+  });
+});
+
+describe('usuario.acciones - cambiarMiContraseniaAccion', () => {
+  const fetchOriginal = global.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    global.fetch = fetchOriginal;
+  });
+
+  it('debe eliminar las cookies token y usuario tras cambiar la contraseña exitosamente', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        exito: true,
+        mensaje: 'Contraseña actualizada exitosamente',
+      }),
+    });
+
+    const resultado = await cambiarMiContraseniaAccion('Actual#2026!', 'NuevaSegura#2026!');
+
+    expect(resultado.exito).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/usuarios/1/cambiar-contrasenia'),
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          contraseniaActual: 'Actual#2026!',
+          nuevaContrasenia: 'NuevaSegura#2026!',
+        }),
+      })
+    );
+    expect(mockDeleteCookie).toHaveBeenCalledWith('token');
+    expect(mockDeleteCookie).toHaveBeenCalledWith('usuario');
   });
 });

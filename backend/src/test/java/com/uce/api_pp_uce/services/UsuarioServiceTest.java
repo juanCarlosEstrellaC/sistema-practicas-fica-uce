@@ -67,6 +67,9 @@ public class UsuarioServiceTest {
     @Spy
     private ValidadorContraseniaNist validadorContraseniaNist = new ValidadorContraseniaNist();
 
+    @Spy
+    private IntentosLoginService intentosLoginService = new IntentosLoginService();
+
     @Mock
     private CorreoService correoService;
 
@@ -649,5 +652,62 @@ public class UsuarioServiceTest {
 
         NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.actualizarAvatar(20L, "http://avatar.jpg"));
         assertEquals("No tiene permiso para modificar la cuenta de otro usuario", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deberia rechazar cambio de contrasenia cuando la nueva es igual a la actual")
+    void cambiarContrasenia_IgualALaActual_LanzaNegocioException() {
+        CambiarContraseniaDto dto = new CambiarContraseniaDto("Segura#2026!Abc", "Segura#2026!Abc");
+        Usuario usuario = new Usuario();
+        usuario.setId(10L);
+        usuario.setCorreo("user@uce.edu.ec");
+        usuario.setClaveHash("$2a$10$hashActual");
+
+        when(usuarioRepository.findById(10L)).thenReturn(Optional.of(usuario));
+        when(codificadorContrasenia.matches("Segura#2026!Abc", "$2a$10$hashActual")).thenReturn(true);
+
+        NegocioException ex = assertThrows(NegocioException.class, () -> usuarioService.cambiarContrasenia(10L, dto));
+        assertEquals("La nueva contraseña debe ser diferente a la contraseña actual", ex.getMessage());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Deberia rechazar si SUBDECANO intenta cambiar o validar contrasenia de otra cuenta")
+    void cambiarYValidarContrasenia_SubdecanoCuentaAjena_LanzaNegocioException() {
+        Usuario subdecano = new Usuario();
+        subdecano.setId(1L);
+        subdecano.setRol(RolUsuario.SUBDECANO);
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(subdecano);
+
+        CambiarContraseniaDto dto = new CambiarContraseniaDto("Vieja123!", "NuevaSegura#2026");
+        NegocioException exCambio = assertThrows(NegocioException.class, () -> usuarioService.cambiarContrasenia(20L, dto));
+        assertEquals("No tiene permiso para modificar la cuenta de otro usuario", exCambio.getMessage());
+
+        NegocioException exValidacion = assertThrows(NegocioException.class, () -> usuarioService.validarContrasenia(20L, "Vieja123!"));
+        assertEquals("No tiene permiso para modificar la cuenta de otro usuario", exValidacion.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deberia bloquear validarContrasenia con CredencialesInvalidasException tras 5 fallos")
+    void validarContrasenia_BloqueaTrasCincoFallos() {
+        Usuario usuario = new Usuario();
+        usuario.setId(10L);
+        usuario.setCorreo("bloqueo.cambio@uce.edu.ec");
+        usuario.setClaveHash("$2a$10$hashReal");
+
+        when(usuarioAutenticadoService.obtenerUsuarioLogueado()).thenReturn(usuario);
+        when(usuarioRepository.findById(10L)).thenReturn(Optional.of(usuario));
+        when(codificadorContrasenia.matches("incorrecta", "$2a$10$hashReal")).thenReturn(false);
+
+        for (int i = 0; i < 5; i++) {
+            assertEquals(false, usuarioService.validarContrasenia(10L, "incorrecta"));
+        }
+
+        CredencialesInvalidasException ex = assertThrows(
+                CredencialesInvalidasException.class,
+                () -> usuarioService.validarContrasenia(10L, "cualquiera")
+        );
+        assertEquals("Demasiados intentos fallidos de verificación. Por favor espere 15 minutos.", ex.getMessage());
     }
 }

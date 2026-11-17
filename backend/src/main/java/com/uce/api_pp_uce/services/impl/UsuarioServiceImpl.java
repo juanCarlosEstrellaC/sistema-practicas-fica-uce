@@ -24,6 +24,7 @@ import com.uce.api_pp_uce.repositories.pp.ProcesoPracticaRepository;
 import com.uce.api_pp_uce.security.ValidadorContraseniaNist;
 import com.uce.api_pp_uce.services.ArchivoService;
 import com.uce.api_pp_uce.services.CorreoService;
+import com.uce.api_pp_uce.services.IntentosLoginService;
 import com.uce.api_pp_uce.services.UsuarioAutenticadoService;
 import com.uce.api_pp_uce.services.UsuarioService;
 import com.uce.api_pp_uce.services.auth.AuthService;
@@ -62,6 +63,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final ValidadorContraseniaNist validadorContraseniaNist;
     private final CorreoService correoService;
     private final ArchivoService archivoService;
+    private final IntentosLoginService intentosLoginService;
 
     @Override
     @Transactional(readOnly = true)
@@ -517,21 +519,32 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public void cambiarContrasenia(Long id, CambiarContraseniaDto dto) {
-        validarPropiedadUsuario(id);
+        validarPropiedadTitular(id);
         validadorContraseniaNist.validar(dto.nuevaContrasenia());
 
         Usuario u = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
-        
+
+        if (intentosLoginService.estaBloqueado(u.getCorreo())) {
+            throw new CredencialesInvalidasException("Demasiados intentos fallidos de verificación. Por favor espere 15 minutos.");
+        }
+
         if (!codificadorContrasenia.matches(dto.contraseniaActual(), u.getClaveHash())) {
+            intentosLoginService.loginFallido(u.getCorreo());
             throw new CredencialesInvalidasException("La contraseña actual es incorrecta");
         }
 
+        if (dto.contraseniaActual().equals(dto.nuevaContrasenia())
+                || codificadorContrasenia.matches(dto.nuevaContrasenia(), u.getClaveHash())) {
+            throw new NegocioException("La nueva contraseña debe ser diferente a la contraseña actual");
+        }
+
         validadorContraseniaNist.validar(dto.nuevaContrasenia(), u);
-        
+
         u.setClaveHash(codificadorContrasenia.encode(dto.nuevaContrasenia()));
         incrementarVersionToken(u);
         usuarioRepository.save(u);
+        intentosLoginService.loginExitoso(u.getCorreo());
 
         Map<String, Object> variables = Map.of(
                 "nombre", u.getNombres()
@@ -541,10 +554,19 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public boolean validarContrasenia(Long id, String contrasenia) {
-        validarPropiedadUsuario(id);
+        validarPropiedadTitular(id);
         Usuario u = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
-        return codificadorContrasenia.matches(contrasenia, u.getClaveHash());
+        if (intentosLoginService.estaBloqueado(u.getCorreo())) {
+            throw new CredencialesInvalidasException("Demasiados intentos fallidos de verificación. Por favor espere 15 minutos.");
+        }
+        boolean coincide = codificadorContrasenia.matches(contrasenia, u.getClaveHash());
+        if (coincide) {
+            intentosLoginService.loginExitoso(u.getCorreo());
+        } else {
+            intentosLoginService.loginFallido(u.getCorreo());
+        }
+        return coincide;
     }
 
     @Override
@@ -577,6 +599,13 @@ public class UsuarioServiceImpl implements UsuarioService {
             archivoService.eliminarArchivo(urlAnterior);
         }
         return urlAvatar;
+    }
+
+    private void validarPropiedadTitular(Long id) {
+        Usuario usuarioAutenticado = usuarioAutenticadoService.obtenerUsuarioLogueado();
+        if (usuarioAutenticado != null && !usuarioAutenticado.getId().equals(id)) {
+            throw new NegocioException("No tiene permiso para modificar la cuenta de otro usuario");
+        }
     }
 
     private void validarPropiedadUsuario(Long id) {

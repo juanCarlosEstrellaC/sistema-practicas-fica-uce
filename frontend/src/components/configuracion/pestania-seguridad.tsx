@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { ContextoAutenticacion } from '@/lib/contextos/contexto-autenticacion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ import { Lock, CheckCircle2, ShieldCheck, KeyRound, Loader2, Eye, EyeOff, AlertC
 import { toast } from 'sonner';
 
 export function PestaniaSeguridad() {
+  const contextoAuth = useContext(ContextoAutenticacion);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [contraseniaActual, setContraseniaActual] = useState('');
   const [contraseniaValidada, setContraseniaValidada] = useState(false);
@@ -66,6 +68,11 @@ export function PestaniaSeguridad() {
       return;
     }
 
+    if (contraseniaActual === nuevaContrasenia) {
+      toast.error('La nueva contraseña debe ser diferente a la contraseña actual');
+      return;
+    }
+
     if (!esFuerte) {
       toast.error('La contraseña nueva no cumple con los requisitos de seguridad');
       return;
@@ -78,6 +85,9 @@ export function PestaniaSeguridad() {
         toast.success(resultado.mensaje || 'Contraseña actualizada con éxito');
         reiniciarProceso();
         setModalAbierto(false);
+        if (contextoAuth) {
+          await contextoAuth.cerrarSesion();
+        }
       } else {
         toast.error(resultado.mensaje || 'Error al actualizar la contraseña');
       }
@@ -273,6 +283,12 @@ export function PestaniaSeguridad() {
                         )}
                       </Button>
                     </div>
+                    {nuevaContrasenia.length > 0 && contraseniaActual === nuevaContrasenia && (
+                      <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1 animate-in fade-in duration-200">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>La nueva contraseña debe ser diferente a la contraseña actual</span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -351,6 +367,7 @@ export function PestaniaSeguridad() {
               disabled={
                 !contraseniaValidada ||
                 !esFuerte ||
+                contraseniaActual === nuevaContrasenia ||
                 nuevaContrasenia !== confirmarContrasenia ||
                 estaCambiando
               }
