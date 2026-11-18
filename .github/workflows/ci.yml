@@ -115,3 +115,29 @@ jobs:
             ghcr.io/juancarlosestrellac/sistema-practicas-fica-uce/frontend:latest
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+  desplegar-vps:
+    name: Desplegar en VPS Azure
+    needs: publicar-ghcr
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Actualizar contenedores en VPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            if [ -n "${{ secrets.VPS_PROJECT_PATH }}" ]; then
+              cd "${{ secrets.VPS_PROJECT_PATH }}"
+            elif [ -d "$HOME/sistema-practicas-fica-uce" ]; then
+              cd "$HOME/sistema-practicas-fica-uce"
+            elif [ -d "/home/sistema-practicas-fica-uce" ]; then
+              cd "/home/sistema-practicas-fica-uce"
+            else
+              echo "No se encontro la carpeta sistema-practicas-fica-uce. Configura el secret VPS_PROJECT_PATH." >&2
+              exit 1
+            fi
+            ./scripts/desplegar-docker.sh "${{ github.ref_name }}"
