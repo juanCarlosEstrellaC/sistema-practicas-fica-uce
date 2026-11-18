@@ -48,7 +48,7 @@ describe('ValidadorFortalezaContrasenia (NIST SP 800-63B)', () => {
     render(<ValidadorFortalezaContrasenia contrasenia="Segura#2026" />);
 
     expect(
-      screen.getByText('Requisitos de seguridad (NIST SP 800-63B):')
+      screen.getByText('Requisitos de seguridad:')
     ).toBeInTheDocument();
     expect(screen.getByText('Entre 8 y 64 caracteres')).toBeInTheDocument();
     expect(screen.getByText('Al menos una letra mayúscula (A-Z)')).toBeInTheDocument();

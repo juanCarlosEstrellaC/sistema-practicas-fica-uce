@@ -135,7 +135,7 @@ export function ValidadorFortalezaContrasenia({ contrasenia }: ValidadorFortalez
 
   return (
     <div className="text-xs space-y-1.5 mt-3 bg-muted/40 p-3 rounded-lg border border-border/80 text-left animate-in fade-in duration-300">
-      <p className="font-semibold text-foreground mb-2">Requisitos de seguridad (NIST SP 800-63B):</p>
+      <p className="font-semibold text-foreground mb-2">Requisitos de seguridad:</p>
       <div
         className={`flex items-center gap-2 transition-colors ${
           tieneLongitud ? 'text-green-600 dark:text-green-500 font-medium' : 'text-muted-foreground'
